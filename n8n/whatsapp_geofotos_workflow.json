@@ -1,0 +1,106 @@
+{
+  "name": "LifeCity - Fotos WhatsApp geolocalizadas (Cloud API)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "whatsapp-fotos-in",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wa-verify",
+      "name": "Webhook GET (verificación Meta)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 80],
+      "webhookId": "whatsapp-fotos-in-get"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "wa-verify-respond",
+      "name": "Responder challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [480, 80]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-fotos-in",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wa-trigger",
+      "name": "Webhook POST (WhatsApp Cloud API)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 260],
+      "webhookId": "whatsapp-fotos-in"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ingesta WhatsApp Cloud API: correlaciona mensaje de UBICACIÓN + IMAGEN por número de teléfono.\n// Variables de entorno requeridas en n8n:\n//   WHATSAPP_TOKEN            -> token permanente de la app de Meta (WhatsApp Business)\n//   WHATSAPP_PHONE_NUMBER_ID  -> id del número emisor (para responder al usuario)\nconst token = $env.WHATSAPP_TOKEN || 'PEGA_TU_TOKEN_AQUI';\nconst phoneId = $env.WHATSAPP_PHONE_NUMBER_ID || '';\nconst sd = $getWorkflowStaticData('global');\nsd.photos = sd.photos || [];\nsd.pending = sd.pending || {};\n\nconst body = $json.body || $json;\nconst entry = (body.entry && body.entry[0]) || {};\nconst change = (entry.changes && entry.changes[0]) || {};\nconst value = change.value || {};\nconst msg = (value.messages && value.messages[0]) || null;\nif (!msg) return [{ json: { handled: false, reason: 'sin mensaje (status u otro evento)' } }];\nconst from = msg.from; // teléfono del remitente\n\nasync function reply(text) {\n  if (!phoneId || !from) return;\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `https://graph.facebook.com/v20.0/${phoneId}/messages`,\n      headers: { Authorization: `Bearer ${token}` },\n      body: { messaging_product: 'whatsapp', to: from, type: 'text', text: { body: text } },\n      json: true,\n    });\n  } catch (e) {}\n}\n\nlet out = { handled: false };\n\nif (msg.type === 'location' && msg.location) {\n  sd.pending[from] = { lat: msg.location.latitude, lon: msg.location.longitude };\n  await reply.call(this, '📍 Ubicación recibida. Ahora envíame la foto y la ubicaré en el visor LifeCity.');\n  out = { handled: 'location', lat: msg.location.latitude, lon: msg.location.longitude };\n}\nelse if (msg.type === 'image' && msg.image) {\n  // 1) URL temporal del medio\n  const media = await this.helpers.httpRequest({\n    url: `https://graph.facebook.com/v20.0/${msg.image.id}`,\n    headers: { Authorization: `Bearer ${token}` }, json: true,\n  });\n  // 2) Descarga el binario (la URL de Meta exige el token) y guárdalo como data URI\n  const bin = await this.helpers.httpRequest({\n    url: media.url, headers: { Authorization: `Bearer ${token}` },\n    encoding: 'arraybuffer', returnFullResponse: true,\n  });\n  const b64 = Buffer.from(bin.body).toString('base64');\n  const mime = media.mime_type || 'image/jpeg';\n  const dataUri = `data:${mime};base64,${b64}`;\n  const loc = sd.pending[from];\n  if (!loc) {\n    await reply.call(this, '⚠️ No tengo tu ubicación. Envía primero 📎 → Ubicación y luego la foto.');\n    out = { handled: 'foto_sin_ubicacion' };\n  } else {\n    const rec = {\n      id: String(msg.id),\n      url: dataUri,\n      caption: (msg.image.caption || ''),\n      date: new Date((+msg.timestamp || 0) * 1000).toISOString(),\n      lat: loc.lat, lon: loc.lon,\n      source: 'whatsapp'\n    };\n    sd.photos.push(rec);\n    if (sd.photos.length > 200) sd.photos.shift(); // los data URI pesan: límite corto\n    delete sd.pending[from];\n    await reply.call(this, `✅ Foto ubicada en ${loc.lat.toFixed(5)}, ${loc.lon.toFixed(5)}. Total: ${sd.photos.length}.`);\n    out = { handled: 'foto', id: rec.id, lat: rec.lat, lon: rec.lon };\n  }\n}\nreturn [{ json: out }];"
+      },
+      "id": "code-ingest-wa",
+      "name": "Ingesta (ubicación + imagen)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 260]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "whatsapp-fotos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-serve-wa",
+      "name": "Webhook GET /whatsapp-fotos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 500],
+      "webhookId": "whatsapp-fotos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Devuelve el arreglo acumulado de fotos geolocalizadas (formato del visor LifeCity).\nconst sd = $getWorkflowStaticData('global');\nreturn [{ json: { photos: sd.photos || [] } }];"
+      },
+      "id": "code-serve-wa",
+      "name": "Leer fotos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Cache-Control", "value": "no-store" }
+            ]
+          }
+        }
+      },
+      "id": "respond-wa",
+      "name": "Responder (CORS)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [740, 500]
+    }
+  ],
+  "connections": {
+    "Webhook GET (verificación Meta)": { "main": [[{ "node": "Responder challenge", "type": "main", "index": 0 }]] },
+    "Webhook POST (WhatsApp Cloud API)": { "main": [[{ "node": "Ingesta (ubicación + imagen)", "type": "main", "index": 0 }]] },
+    "Webhook GET /whatsapp-fotos": { "main": [[{ "node": "Leer fotos", "type": "main", "index": 0 }]] },
+    "Leer fotos": { "main": [[{ "node": "Responder (CORS)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

@@ -130,7 +130,7 @@
       <h2><span>Guardar / Exportar</span><span class="dot"></span></h2>
       <button class="btn primary" id="btn-save-study"><span class="ic">✓</span> Guardar estudio</button>
       <button class="btn" id="btn-sheet"><span class="ic">▭</span> Exportar lámina (ISO+cenital+frontal)</button>
-      <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC (muros + niveles)</button>
+      <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC (masas + muros + niveles)</button>
       <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar masas (JSON)</button>
       <button class="btn" id="btn-back"><span class="ic">←</span> Volver al visor</button>
     </div>
@@ -208,6 +208,8 @@ if(lot && lot.ring && lot.centroid){
   lotArea=lot.area || Math.round(shoelace(footprint));
   icb=lot.icb; ica=lot.ica;
   maxBuild=(lotArea)*(((icb||0)+(ica||0)));
+  // Ciudades cuya norma viene en pisos máximos (Bogotá POT 555, zoning USA): huella × pisos
+  if(!maxBuild && lot.pisosMax) maxBuild=lotArea*lot.pisosMax;
 }
 
 // ---- offset (retiro) hacia adentro por bisectriz de aristas ----
@@ -334,7 +336,8 @@ function refresh(){
   $('mtr-txt').textContent=`${built.toLocaleString()} / ${max?max.toLocaleString():'—'} m²`;
   const pct=max?Math.min(100,built/max*100):0;
   const bar=$('mtr-bar'); bar.style.width=pct+'%'; bar.classList.toggle('over',max&&built>max);
-  $('mtr-note').textContent=max?(built>max?`Excede ${(built-max).toLocaleString()} m² el máximo POT`:`Disponible ${(max-built).toLocaleString()} m² (índice ${((icb||0)+(ica||0)).toFixed(2)})`):'Predio sin ICB/ICA.';
+  const normTxt=(icb||ica)?`índice ${((icb||0)+(ica||0)).toFixed(2)}`:(lot&&lot.pisosMax?`${lot.pisosMax} pisos máx`:'');
+  $('mtr-note').textContent=max?(built>max?`Excede ${(built-max).toLocaleString()} m² el máximo normativo`:`Disponible ${(max-built).toLocaleString()} m²${normTxt?' ('+normTxt+')':''}`):'Predio sin índice/pisos máx de norma.';
   // lista
   const list=$('mass-list');
   if(!masses.length){ list.innerHTML='<div class="empty">Sin masas. Crea una con "Crear masa".</div>'; return; }
@@ -625,7 +628,7 @@ function exportSheet(){
   <div class="noprint"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
   <div class="sheet">
    <div class="head">
-     <div class="l"><h1>${(p.direpred||'ESTUDIO URBANÍSTICO').toUpperCase()}</h1><div class="s">${p.nom_barrio||''}${p.comuna?' · Comuna '+p.comuna:''} · Cali</div></div>
+     <div class="l"><h1>${(p.direpred||'ESTUDIO URBANÍSTICO').toUpperCase()}</h1><div class="s">${p.nom_barrio||''}${p.comuna?' · Comuna '+p.comuna:''} · ${p.city||'Cali'}</div></div>
      <div class="r"><div class="brand">LifeCity</div><div>NPN ${p.npn||'—'}</div><div>${new Date().toLocaleString('es-CO')}</div></div>
    </div>
    <div class="grid">
@@ -666,7 +669,7 @@ function exportSheet(){
        <div class="kv">${levels.map(l=>`<span class="k">${l.name}</span><span class="v">+${l.elev.toFixed(2)} m</span>`).join('')}</div>
      </div>
    </div>
-   <div class="foot"><span>LifeCity · Plataforma Urbana AEC · lifecity.com.co</span><span>Catastro IDESC Cali · POT 2014 · Lámina generada automáticamente</span></div>
+   <div class="foot"><span>LifeCity · Plataforma Urbana AEC · lifecity.com.co</span><span>${p.city?'Catastro y normativa de '+p.city:'Catastro IDESC Cali · POT 2014'} · Lámina generada automáticamente</span></div>
   </div></body></html>`;
   const w=window.open('','_blank'); if(!w){ flash('Permite ventanas emergentes para ver la lámina.','#ff5252'); return; }
   w.document.write(html); w.document.close();
@@ -702,12 +705,41 @@ function buildIFCString(){
   const bname=((lot&&lot.direpred)||'Edificio').replace(/'/g,"''");
   const building=add(`IFCBUILDING('${ifcGuid()}',${owner},'${bname}',$,$,${bldgPl},$,$,.ELEMENT.,$,$,$)`);
   const storeyMap={};
+  const storeyElev={};
   const storeyIds=levels.map(l=>{ const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,l.elev))})`);
-    const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'${l.name.replace(/'/g,"''")}',$,$,${pl},$,$,.ELEMENT.,${f(l.elev)})`); storeyMap[l.id]=st; return st; });
+    const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'${l.name.replace(/'/g,"''")}',$,$,${pl},$,$,.ELEMENT.,${f(l.elev)})`); storeyMap[l.id]=st; storeyElev[st]=l.elev; return st; });
+  // Sin niveles definidos: crea un nivel base para poder contener masas/muros
+  if(!storeyIds.length){
+    const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,0))})`);
+    const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'N0',$,$,${pl},$,$,.ELEMENT.,0.)`);
+    storeyIds.push(st); storeyElev[st]=0;
+  }
   add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${project},(${site}))`);
   add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${site},(${building}))`);
-  if(storeyIds.length) add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${building},(${storeyIds.join(',')}))`);
+  add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${building},(${storeyIds.join(',')}))`);
   const byStorey={};
+  // Nivel cuya elevación queda justo debajo (o igual) de la cota dada
+  function storeyAt(elev){
+    let best=storeyIds[0], bestE=-Infinity;
+    for(const st of storeyIds){ const e=storeyElev[st]; if(e<=elev+0.01 && e>bestE){ best=st; bestE=e; } }
+    return best;
+  }
+  // ---- MASAS: extrusión de la huella real (perfil arbitrario) como IfcBuildingElementProxy ----
+  masses.forEach((m,i)=>{
+    const pts=offsetPolygon(footprint,m.offset); if(!pts || pts.length<3) return;
+    const h=m.floors*m.floorH; if(h<=0.001) return;
+    // three.js: X este, Z sur → IFC: X este, Y norte = -Z
+    const cps=pts.map(p=>CP2(p.x,-p.z)); cps.push(cps[0]);
+    const poly=add(`IFCPOLYLINE((${cps.join(',')}))`);
+    const prof=add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${poly})`);
+    const solid=add(`IFCEXTRUDEDAREASOLID(${prof},${AX3(CP(0,0,0))},${DIR(0,0,1)},${f(h)})`);
+    const shape=add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solid}))`);
+    const pds=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${shape}))`);
+    const mpl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,m.baseZ))})`);
+    const proxy=add(`IFCBUILDINGELEMENTPROXY('${ifcGuid()}',${owner},'Masa ${i+1} · ${m.floors} pisos x ${(+m.floorH).toFixed(2)} m','Estudio de masas LifeCity','MASA',${mpl},${pds},$,$)`);
+    const st=storeyAt(m.baseZ);
+    (byStorey[st]=byStorey[st]||[]).push(proxy);
+  });
   walls.forEach((w,i)=>{
     const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); if(!b||!t) return;
     const base=Math.min(b.elev,t.elev), top=Math.max(b.elev,t.elev), h=top-base; if(h<=0.001) return;
@@ -726,10 +758,10 @@ function buildIFCString(){
   return header+lines.join('\n')+'\nENDSEC;\nEND-ISO-10303-21;\n';
 }
 function exportIFC(){
-  if(!levels.length){ flash('Agrega al menos un nivel para exportar IFC.','#ff5252'); return; }
+  if(!masses.length && !levels.length && !walls.length){ flash('Crea al menos una masa (o niveles/muros) para exportar IFC.','#ff5252'); return; }
   const ifc=buildIFCString();
   download(ifc,((lot&&lot.npn)||'masas')+'.ifc','application/x-step');
-  flash(`IFC exportado: ${walls.length} muro(s), ${levels.length} nivel(es).`,'#6bd96b');
+  flash(`IFC exportado: ${masses.length} masa(s), ${walls.length} muro(s), ${levels.length} nivel(es).`,'#6bd96b');
 }
 window.__mass={ ifc:buildIFCString, capture:captureViews };
 
@@ -742,8 +774,17 @@ function fillHead(){
     <div class="kv">Área lote <b>${lotArea?lotArea.toLocaleString():'—'} m²</b></div>`;
   $('hud-npn').textContent=lot.numepred||lot.npn||'—';
   $('hud-area').textContent=(lotArea?lotArea.toLocaleString():'—')+' m²';
-  $('m-icb').textContent=icb!=null?icb.toFixed(2):'—';
-  $('m-ica').textContent=ica!=null?ica.toFixed(2):'—';
+  if(icb==null && lot.pisosMax){
+    $('m-icb').previousElementSibling.textContent='Pisos máx';
+    $('m-icb').textContent=lot.pisosMax;
+    $('m-ica').previousElementSibling.textContent='Zoning / Trat.';
+    $('m-ica').textContent=lot.zoning?String(lot.zoning).slice(0,10):'—';
+  } else {
+    $('m-icb').textContent=icb!=null?icb.toFixed(2):'—';
+    $('m-ica').textContent=ica!=null?ica.toFixed(2):'—';
+  }
+  const hudCity=document.querySelector('.hud-br div');
+  if(hudCity && lot.city) hudCity.textContent=String(lot.city).toUpperCase();
 }
 
 // ===== init =====

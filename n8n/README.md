@@ -1,3 +1,26 @@
+# Fotos geolocalizadas → Visores LifeCity (n8n)
+
+Dos workflows disponibles:
+
+| Workflow | Canal | Archivo |
+|---|---|---|
+| Telegram | Bot de Telegram (foto + ubicación) | `telegram_geofotos_workflow.json` |
+| WhatsApp | WhatsApp Business Cloud API (foto + ubicación) | `whatsapp_geofotos_workflow.json` |
+
+Ambos exponen un **Webhook GET** con el mismo formato JSON que leen todos los visores (Cali y multi-ciudad `city_viewer.html`).
+
+> 💡 **Alternativa sin n8n:** envía las fotos de WhatsApp a **OpenClaw** (tu agente en AWS) y deja que publique el JSON en S3, en su endpoint HTTP o en `fotos/fotos_whatsapp.json` del repo (instrucciones en `OPENCLAW.md` en la raíz). El visor las carga desde el campo *“URL fotos (S3 / OpenClaw)”*.
+
+## WhatsApp (Cloud API) — resumen
+1. Crea una app en [Meta for Developers](https://developers.facebook.com) con el producto **WhatsApp Business**.
+2. Importa `whatsapp_geofotos_workflow.json` en n8n y **actívalo**.
+3. En Meta → WhatsApp → Configuration → Webhook: usa la URL del nodo *Webhook POST (WhatsApp Cloud API)* (`.../webhook/whatsapp-fotos-in`), suscribe el campo `messages`. La verificación (`hub.challenge`) la responde el nodo GET del mismo path.
+4. Variables de entorno en n8n: `WHATSAPP_TOKEN` (token permanente) y `WHATSAPP_PHONE_NUMBER_ID`.
+5. El endpoint para el visor es el nodo **Webhook GET /whatsapp-fotos** → pégalo en *Endpoint n8n* del visor.
+6. En el chat de WhatsApp del número de la app: envía 📎 → **Ubicación**, luego la **foto**. WhatsApp también elimina el EXIF, por eso son 2 pasos.
+
+---
+
 # Fotos de Telegram geolocalizadas → Visor Cali (n8n)
 
 Envía una **foto** + tu **ubicación** a un bot de Telegram y aparece automáticamente en el mapa 3D, posicionada por las coordenadas del teléfono.

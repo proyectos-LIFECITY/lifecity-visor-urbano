@@ -21,7 +21,17 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-0); color: var(--text); font-family: var(--mono); font-size: 12px; }
-  #app { display: grid; grid-template-columns: 288px 1fr 330px; height: 100vh; }
+  #app { display: grid; grid-template-columns: 288px 1fr 330px; height: calc(100vh - 36px); }
+
+  /* ===== CITY TABS ===== */
+  #tabs { display: flex; align-items: stretch; height: 36px; background: var(--bg-1); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  #tabs .tab {
+    display: flex; align-items: center; gap: 7px; padding: 0 16px;
+    color: var(--text-dim); text-decoration: none; font-size: 11px; letter-spacing: 1px;
+    border-right: 1px solid var(--line); white-space: nowrap;
+  }
+  #tabs .tab:hover { background: var(--bg-2); color: var(--text); }
+  #tabs .tab.on { background: var(--bg-0); color: var(--accent); border-bottom: 2px solid var(--accent); font-weight: 600; }
 
   /* ===== LEFT PANEL ===== */
   #left {
@@ -203,6 +213,18 @@
 </head>
 <body>
 
+<nav id="tabs">
+  <a class="tab on" href="cali_aec_viewer.html">🇨🇴 CALI</a>
+  <a class="tab" href="city_viewer.html?city=bogota">🇨🇴 BOGOTÁ</a>
+  <a class="tab" href="city_viewer.html?city=medellin">🇨🇴 MEDELLÍN</a>
+  <a class="tab" href="city_viewer.html?city=cartagena">🇨🇴 CARTAGENA</a>
+  <a class="tab" href="city_viewer.html?city=miamilakes">🇺🇸 MIAMI LAKES</a>
+  <a class="tab" href="city_viewer.html?city=bocaraton">🇺🇸 BOCA RATÓN</a>
+  <a class="tab" href="city_viewer.html?city=delraybeach">🇺🇸 DELRAY BEACH</a>
+  <a class="tab" href="city_viewer.html?city=quito">🇪🇨 QUITO</a>
+  <a class="tab" href="city_viewer.html?city=buenosaires">🇦🇷 BUENOS AIRES</a>
+  <a class="tab" href="city_viewer.html?city=madrid">🇪🇸 MADRID</a>
+</nav>
 <div id="app">
   <!-- ============ LEFT ============ -->
   <aside id="left">
@@ -241,9 +263,10 @@
       <div class="hint">Fuente oficial: WFS <b>catastro:cat_bas_terrenos</b> · ws-idesc.cali.gov.co · EPSG:4326 (coincide con OSM).</div>
     </div>
 
-    <!-- ===== TELEGRAM / n8n ===== -->
+    <!-- ===== FOTOS: WhatsApp/Cowork + Telegram/n8n ===== -->
     <div class="section">
-      <h2><span>Fotos Telegram · n8n</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <h2><span>Fotos WhatsApp · Telegram</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <button class="btn" id="btn-wa-file"><span class="ic" style="color:#25d366">✆</span> Cargar fotos WhatsApp (repo)</button>
       <div class="field">
         <label>Endpoint n8n (webhook GET → JSON)</label>
         <input type="text" id="tg-endpoint" placeholder="https://TU-n8n/webhook/cali-fotos">
@@ -255,7 +278,7 @@
       </div>
       <input type="file" id="file-photos" accept=".json">
       <label class="toggle"><input type="checkbox" id="tg-photos" checked><span>Mostrar fotos (<span id="photo-count">0</span>)</span></label>
-      <div class="hint">Envía al bot una <b>foto</b> + tu <b>ubicación</b> (📎→Ubicación). n8n la posiciona por las coordenadas del teléfono. Workflow y guía en <b>/n8n</b>.</div>
+      <div class="hint">WhatsApp: envía las fotos a <b>OpenClaw</b> (tu agente en AWS); él publica el JSON en S3/endpoint o en <b>fotos/fotos_whatsapp.json</b> (guía en OPENCLAW.md). El campo Endpoint de arriba acepta la URL de OpenClaw o de n8n (Telegram/WhatsApp, ver /n8n).</div>
     </div>
 
     <!-- ===== PROPIEDADES ===== -->
@@ -1263,8 +1286,22 @@ function focusPhotos() {
   const l = latLonToLocal(p.lat, p.lon);
   controls.target.set(l.x, 40, l.z); camera.position.set(l.x + 180, 150, l.z + 180);
 }
-// API global para inyección directa (p.ej. desde consola o un puente n8n)
-window.CaliViewer = { addPhoto: (p) => { ingestPhotos([p]); }, ingestPhotos };
+// ---- Fotos WhatsApp geolocalizadas por Claude Cowork (archivo en el repo) ----
+const WA_FILE = 'fotos/fotos_whatsapp.json';
+async function loadWhatsAppFile(silent) {
+  try {
+    const res = await fetch(WA_FILE + '?t=' + Date.now(), { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const added = ingestPhotos(data);
+    if (added) toast(`${added} foto(s) de WhatsApp añadidas desde el repo`, 'ok');
+    else if (!silent) toast('Sin fotos nuevas en ' + WA_FILE, '');
+  } catch (e) {
+    if (!silent) toast('No se pudo leer ' + WA_FILE + ' (' + e.message + '). Sirve la carpeta por HTTP.', 'err');
+  }
+}
+// API global para inyección directa (Claude Cowork, consola o un puente n8n)
+window.CaliViewer = { addPhoto: (p) => { ingestPhotos([p]); }, ingestPhotos, loadWhatsAppFile };
 
 // ===================== RAYCASTER =====================
 const raycaster = new THREE.Raycaster();
@@ -1311,6 +1348,7 @@ $('file-ifc').onchange = (e) => { if (e.target.files[0]) loadIFC(e.target.files[
 $('file-pcd').onchange = (e) => { if (e.target.files[0]) loadPointCloud(e.target.files[0]); e.target.value = ''; };
 $('file-topo').onchange = (e) => { if (e.target.files[0]) loadTopoFile(e.target.files[0]); e.target.value = ''; };
 $('btn-tg-connect').onclick = () => { state.photoTimer ? stopPhotoPolling() : startPhotoPolling(); };
+$('btn-wa-file').onclick = () => loadWhatsAppFile(false);
 $('btn-photos-focus').onclick = focusPhotos;
 $('tg-photos').onchange = (e) => gPhotos.visible = e.target.checked;
 $('file-photos').onchange = (e) => {
@@ -1374,6 +1412,7 @@ if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCity
 loadPersistedProperties();
 renderStudies();
 window.addEventListener('focus', renderStudies);
+loadWhatsAppFile(true); // intenta cargar fotos de WhatsApp del repo silenciosamente
 </script>
 </body>
 </html>

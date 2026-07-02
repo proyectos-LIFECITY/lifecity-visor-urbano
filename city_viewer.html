@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<script src="auth.js"></script>
+<title>LifeCity · Visor Urbano Multi-Ciudad</title>
+<style>
+  :root {
+    --bg-0: #0a0d12;
+    --bg-1: #11161e;
+    --bg-2: #1a2230;
+    --line: #2a3548;
+    --text: #e6ecf5;
+    --text-dim: #8b97aa;
+    --accent: #f4b942;
+    --accent-2: #ff5252;
+    --accent-3: #4dd0e1;
+    --ok: #6bd96b;
+    --viol: #9c6bff;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+    --display: 'Space Grotesk', 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-0); color: var(--text); font-family: var(--mono); font-size: 12px; }
+  #wrap { display: grid; grid-template-rows: 40px 1fr; height: 100vh; }
+
+  /* ===== CITY TABS ===== */
+  #tabs { display: flex; align-items: stretch; background: var(--bg-1); border-bottom: 1px solid var(--line); overflow-x: auto; }
+  #tabs .tab {
+    display: flex; align-items: center; gap: 7px; padding: 0 18px;
+    color: var(--text-dim); text-decoration: none; font-size: 11px; letter-spacing: 1px;
+    border-right: 1px solid var(--line); white-space: nowrap;
+  }
+  #tabs .tab:hover { background: var(--bg-2); color: var(--text); }
+  #tabs .tab.on { background: var(--bg-0); color: var(--accent); border-bottom: 2px solid var(--accent); font-weight: 600; }
+  #tabs .tab .flag { font-size: 13px; }
+  #tabs .spacer { flex: 1; }
+  #tabs .who { display: flex; align-items: center; gap: 10px; padding: 0 14px; color: var(--text-dim); font-size: 10px; }
+  #tabs .who button { background: var(--bg-2); border: 1px solid var(--line); color: var(--text-dim); font-family: var(--mono); font-size: 10px; padding: 4px 8px; cursor: pointer; }
+
+  #app { display: grid; grid-template-columns: 292px 1fr 340px; height: 100%; min-height: 0; }
+
+  /* ===== LEFT PANEL ===== */
+  #left {
+    background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    border-right: 1px solid var(--line);
+    padding: 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .brand h1 { font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+  .brand .tag { font-size: 9px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .section { display: flex; flex-direction: column; gap: 8px; }
+  .section h2 { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+  .section h2 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  .btn {
+    width: 100%; padding: 9px 12px;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+    font-family: var(--mono); font-size: 11px; cursor: pointer;
+    text-align: left; display: flex; align-items: center; gap: 8px; transition: all 0.15s;
+  }
+  .btn:hover { background: #232c3d; border-color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn .ic { color: var(--accent); font-weight: 700; }
+  .btn.primary { background: var(--accent); color: #1a1305; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: #ffc857; }
+  .btn.cyan { border-color: var(--accent-3); }
+  .btn.cyan .ic { color: var(--accent-3); }
+
+  input[type="file"] { display: none; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+  .field input, .field select {
+    background: var(--bg-0); border: 1px solid var(--line); color: var(--text);
+    padding: 7px 9px; font-family: var(--mono); font-size: 11px; width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .search-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .search-row .btn { width: auto; padding: 7px 12px; justify-content: center; }
+
+  .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+  .toggle input { accent-color: var(--accent); }
+  .toggle span { font-size: 11px; }
+  .hint { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+  .hint a { color: var(--accent); }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .slider-row .v { color: var(--accent); font-size: 10px; min-width: 46px; text-align: right; }
+
+  /* ===== CENTER ===== */
+  #center { position: relative; background: #000; min-width: 0; }
+  #canvas { width: 100%; height: 100%; display: block; }
+  .hud { position: absolute; pointer-events: none; font-family: var(--mono); color: var(--text-dim); font-size: 10px; letter-spacing: 1px; }
+  .hud-tl { top: 16px; left: 16px; } .hud-tr { top: 16px; right: 16px; text-align: right; }
+  .hud-bl { bottom: 16px; left: 16px; } .hud-br { bottom: 16px; right: 16px; text-align: right; }
+  .hud .v { color: var(--accent); } .hud .lbl { color: var(--text-dim); margin-right: 6px; }
+  .loading {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,13,18,0.92); border: 1px solid var(--accent);
+    padding: 18px 28px; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 1.5px; color: var(--accent); display: none; pointer-events: none; z-index: 5;
+  }
+  .loading.show { display: block; }
+  .loading::before { content: '> '; animation: blink 0.7s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .toast {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,13,18,0.95); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    padding: 10px 16px; font-size: 11px; color: var(--text); display: none; z-index: 6; max-width: 70%; pointer-events: none;
+  }
+  .toast.show { display: block; }
+  .toast.ok { border-left-color: var(--ok); } .toast.err { border-left-color: var(--accent-2); }
+
+  /* ===== RIGHT PANEL ===== */
+  #right {
+    background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    border-left: 1px solid var(--line); padding: 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: var(--bg-2); border: 1px solid var(--line); padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+  .stat .lbl { font-size: 8px; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
+  .stat .val { font-family: var(--display); font-size: 18px; font-weight: 600; color: var(--accent); }
+
+  .predio { background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--accent-3); padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+  .predio .npn { font-family: var(--mono); font-size: 12px; color: var(--accent-3); word-break: break-all; letter-spacing: 0.5px; }
+  .predio .kv { display: grid; grid-template-columns: 84px 1fr; gap: 4px 8px; font-size: 10px; }
+  .predio .kv .k { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .predio .kv .val { color: var(--text); word-break: break-word; }
+  .predio a { color: var(--accent); font-size: 10px; }
+  .pot { background: var(--bg-0); border: 1px solid var(--line); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; margin: 2px 0; }
+  .pot-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 10px; }
+  .pot-row .pk { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .pot-row .pv { font-family: var(--display); font-weight: 600; color: var(--accent); }
+  .pot-row .pv.adi { color: var(--accent-2); }
+  .pot-row .pv.small { font-family: var(--mono); font-weight: 400; color: var(--text); font-size: 9px; text-align: right; max-width: 60%; }
+  .pot-row.total { border-top: 1px solid var(--line); padding-top: 5px; margin-top: 2px; }
+  .pot-row.total .pv { color: var(--accent-3); font-size: 13px; }
+  .pot-sep { height: 1px; background: var(--line); margin: 2px 0; }
+  .pot input, .pot select { background: var(--bg-1); border: 1px solid var(--line); color: var(--text); padding: 4px 6px; font-family: var(--mono); font-size: 10px; width: 90px; }
+  .pot select { width: 100%; }
+  .predio .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .predio .actions .btn { padding: 7px 8px; font-size: 10px; justify-content: center; }
+
+  .project-card {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    padding: 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.15s; position: relative;
+  }
+  .project-card:hover { background: #232c3d; }
+  .project-card.focal { border-left-color: var(--accent-2); }
+  .project-card.selected { background: #2a3548; border-color: var(--accent); }
+  .project-card .name { font-family: var(--display); font-size: 13px; font-weight: 600; padding-right: 18px; }
+  .project-card .meta { display: flex; gap: 10px; font-size: 10px; color: var(--text-dim); flex-wrap: wrap; }
+  .project-card .meta span { color: var(--text); }
+  .project-card .coords { font-size: 9px; color: var(--text-dim); letter-spacing: 0.5px; word-break: break-all; }
+  .project-card .badges { display: flex; gap: 5px; }
+  .project-card .badge { font-size: 8px; padding: 2px 5px; border: 1px solid var(--line); color: var(--text-dim); letter-spacing: 0.5px; }
+  .project-card .badge.on { color: var(--accent-3); border-color: var(--accent-3); }
+  .project-card .del { position: absolute; top: 8px; right: 8px; color: var(--text-dim); cursor: pointer; font-size: 13px; line-height: 1; }
+  .project-card .del:hover { color: var(--accent-2); }
+  .empty { color: var(--text-dim); font-size: 11px; padding: 12px; text-align: center; font-style: italic; }
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-sq { width: 10px; height: 10px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-0); }
+  ::-webkit-scrollbar-thumb { background: var(--line); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+</head>
+<body>
+
+<div id="wrap">
+  <!-- ============ CITY TABS ============ -->
+  <nav id="tabs">
+    <a class="tab" href="cali_aec_viewer.html"><span class="flag">🇨🇴</span> CALI</a>
+    <a class="tab" data-city="bogota" href="city_viewer.html?city=bogota"><span class="flag">🇨🇴</span> BOGOTÁ</a>
+    <a class="tab" data-city="medellin" href="city_viewer.html?city=medellin"><span class="flag">🇨🇴</span> MEDELLÍN</a>
+    <a class="tab" data-city="cartagena" href="city_viewer.html?city=cartagena"><span class="flag">🇨🇴</span> CARTAGENA</a>
+    <a class="tab" data-city="miamilakes" href="city_viewer.html?city=miamilakes"><span class="flag">🇺🇸</span> MIAMI LAKES</a>
+    <a class="tab" data-city="bocaraton" href="city_viewer.html?city=bocaraton"><span class="flag">🇺🇸</span> BOCA RATÓN</a>
+    <a class="tab" data-city="delraybeach" href="city_viewer.html?city=delraybeach"><span class="flag">🇺🇸</span> DELRAY BEACH</a>
+    <a class="tab" data-city="quito" href="city_viewer.html?city=quito"><span class="flag">🇪🇨</span> QUITO</a>
+    <a class="tab" data-city="buenosaires" href="city_viewer.html?city=buenosaires"><span class="flag">🇦🇷</span> BUENOS AIRES</a>
+    <a class="tab" data-city="madrid" href="city_viewer.html?city=madrid"><span class="flag">🇪🇸</span> MADRID</a>
+    <span class="spacer"></span>
+    <span class="who"><span id="user-chip">—</span><button id="btn-logout" title="Cerrar sesión">⏻</button></span>
+  </nav>
+
+  <div id="app">
+  <!-- ============ LEFT ============ -->
+  <aside id="left">
+    <div class="brand">
+      <h1 id="city-name">BOGOTÁ</h1>
+      <span class="tag" id="city-tag">CATASTRO</span>
+    </div>
+
+    <div class="section">
+      <h2><span>Base Geográfica</span><span class="dot"></span></h2>
+      <button class="btn primary" id="btn-osm"><span class="ic">◉</span> Cargar edificaciones OSM</button>
+      <label class="toggle"><input type="checkbox" id="tg-basemap"><span>Basemap OpenStreetMap (tiles)</span></label>
+      <label class="toggle"><input type="checkbox" id="tg-grid" checked><span>Grilla de referencia</span></label>
+      <label class="toggle"><input type="checkbox" id="tg-buildings" checked><span>Edificaciones OSM</span></label>
+      <div class="hint">Todo en <b>EPSG:4326 (WGS84)</b>: los servicios catastrales se reproyectan a este sistema, así el solape con OSM es exacto.</div>
+    </div>
+
+    <!-- ===== CATASTRO ===== -->
+    <div class="section">
+      <h2><span id="parcels-title">Lotes</span><span class="dot"></span></h2>
+      <div id="city-config"></div>
+      <div class="field">
+        <label id="search-label">Buscar lote</label>
+        <div class="search-row">
+          <input type="text" id="prd-search" placeholder="">
+          <button class="btn cyan" id="btn-search"><span class="ic">⌕</span></button>
+        </div>
+      </div>
+      <button class="btn cyan" id="btn-load-view"><span class="ic">▦</span> Cargar lotes en vista actual</button>
+      <div class="slider-row">
+        <span class="hint">Radio</span>
+        <input type="range" id="prd-radius" min="100" max="1200" step="50" value="350">
+        <span class="v" id="prd-radius-v">350 m</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tg-parcels" checked><span>Mostrar lotes catastrales</span></label>
+      <div class="hint" id="source-hint"></div>
+    </div>
+
+    <!-- ===== FOTOS: WhatsApp vía OpenClaw (AWS) + n8n ===== -->
+    <div class="section">
+      <h2><span>Fotos · WhatsApp / OpenClaw</span><span class="dot" style="background:#25d366"></span></h2>
+      <div class="field">
+        <label>URL fotos (S3 / OpenClaw) — o ruta del repo</label>
+        <input type="text" id="wa-url" placeholder="fotos/fotos_whatsapp.json">
+      </div>
+      <button class="btn" id="btn-wa-file"><span class="ic" style="color:#25d366">✆</span> Cargar fotos WhatsApp</button>
+      <label class="toggle"><input type="checkbox" id="wa-poll"><span>Vigilar cada 20 s</span></label>
+      <div class="field">
+        <label>Endpoint (webhook GET → JSON · n8n u OpenClaw)</label>
+        <input type="text" id="tg-endpoint" placeholder="https://TU-servidor/webhook/geofotos">
+      </div>
+      <button class="btn" id="btn-tg-connect"><span class="ic">◉</span> Conectar y sondear fotos</button>
+      <div class="row2">
+        <label class="btn" for="file-photos"><span class="ic">▤</span> Importar JSON</label>
+        <button class="btn" id="btn-photos-focus"><span class="ic">◎</span> Ir a fotos</button>
+      </div>
+      <input type="file" id="file-photos" accept=".json">
+      <label class="toggle"><input type="checkbox" id="tg-photos" checked><span>Mostrar fotos (<span id="photo-count">0</span>)</span></label>
+      <div class="hint">Envía las fotos por WhatsApp a <b>OpenClaw</b> (tu agente en AWS): él las geolocaliza y publica el JSON en S3 o en su endpoint HTTP — pega esa URL arriba. Guía completa en <b>OPENCLAW.md</b>. También sirve el webhook n8n de WhatsApp/Telegram (ver /n8n).</div>
+    </div>
+
+    <!-- ===== PROPIEDADES ===== -->
+    <div class="section">
+      <h2><span>Propiedades guardadas</span><span class="dot"></span></h2>
+      <div class="hint">Selecciona un lote y pulsa <b>Guardar</b> en el panel derecho. Se conservan en este navegador (por ciudad).</div>
+      <button class="btn" id="btn-clear-saved"><span class="ic">✕</span> Vaciar propiedades guardadas</button>
+    </div>
+
+    <!-- ===== DESARROLLO: NUBE + IFC ===== -->
+    <div class="section">
+      <h2><span>Desarrollar propiedad</span><span class="dot"></span></h2>
+      <div class="hint">Selecciona una propiedad en el panel derecho y ánclale datos:</div>
+      <label class="btn cyan" for="file-ifc"><span class="ic">▣</span> Cargar modelo IFC</label>
+      <input type="file" id="file-ifc" accept=".ifc">
+      <label class="btn" for="file-pcd"><span class="ic">⋮⋮</span> Cargar nube de puntos</label>
+      <input type="file" id="file-pcd" accept=".xyz,.pts,.txt,.csv,.asc,.pcd">
+      <div class="hint">Nube: XYZ / PTS / CSV (X Y Z [R G B]). Se centra sobre el predio.</div>
+    </div>
+
+    <div class="section">
+      <h2><span>Vista</span><span class="dot"></span></h2>
+      <div class="row2">
+        <button class="btn" id="btn-top"><span class="ic">⊥</span> Cenital</button>
+        <button class="btn" id="btn-iso"><span class="ic">◇</span> Isométrica</button>
+      </div>
+      <button class="btn" id="btn-reset"><span class="ic">↺</span> Reset cámara</button>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main id="center">
+    <canvas id="canvas"></canvas>
+    <div class="hud hud-tl">
+      <div><span class="lbl">CRS</span><span class="v">EPSG:4326 (WGS84) → ENU local</span></div>
+      <div><span class="lbl">CENTER</span><span class="v" id="hud-center">—</span></div>
+    </div>
+    <div class="hud hud-tr">
+      <div><span class="lbl">FPS</span><span class="v" id="fps">--</span></div>
+      <div><span class="lbl">OBJ</span><span class="v" id="obj-count">0</span></div>
+      <div><span class="lbl">LOTES</span><span class="v" id="parcel-count">0</span></div>
+    </div>
+    <div class="hud hud-bl">
+      <div id="cursor-coords"><span class="lbl">LAT/LON</span><span class="v">--</span></div>
+    </div>
+    <div class="hud hud-br">
+      <div id="hud-city">—</div>
+      <div style="color: var(--accent);">v0.3 · LIFE CITY BIM</div>
+      <div style="color: var(--text-dim);" id="hud-attrib">© OpenStreetMap</div>
+    </div>
+    <div class="loading" id="loading">CARGANDO...</div>
+    <div class="toast" id="toast"></div>
+  </main>
+
+  <!-- ============ RIGHT ============ -->
+  <aside id="right">
+    <div class="section">
+      <h2><span>Métricas</span><span class="dot"></span></h2>
+      <div class="stat-grid">
+        <div class="stat"><span class="lbl">Propiedades</span><span class="val" id="m-prj">0</span></div>
+        <div class="stat"><span class="lbl">Área total</span><span class="val" id="m-area">0</span></div>
+        <div class="stat"><span class="lbl">IFC</span><span class="val" id="m-ifc">0</span></div>
+        <div class="stat"><span class="lbl">Nubes</span><span class="val" id="m-pcd">0</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2><span>Lote seleccionado</span><span class="dot"></span></h2>
+      <div id="predio-info"><div class="empty">Haz clic en un lote o búscalo.</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Leyenda</span><span class="dot"></span></h2>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-sq" style="background:#3a6ea5"></span>Lote catastral</div>
+        <div class="legend-item"><span class="legend-sq" style="background:#ff5252"></span>Lote seleccionado</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f4b942"></span>Propiedad guardada</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#25d366"></span>Foto WhatsApp/Telegram</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2><span>Listado de Propiedades</span><span class="dot"></span></h2>
+      <div id="prj-list"><div class="empty">Sin propiedades. Busca un lote y guárdalo.</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Estudios de masas</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div id="study-list"><div class="empty">Sin estudios. Crea uno en "Diseñar masas" y guárdalo.</div></div>
+    </div>
+  </aside>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.50/web-ifc-api.js",
+    "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.125/IFCLoader.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===================== UI HELPERS =====================
+const $ = (id) => document.getElementById(id);
+const showLoading = (msg) => { $('loading').textContent = msg; $('loading').classList.add('show'); };
+const hideLoading = () => $('loading').classList.remove('show');
+let toastT = null;
+function toast(msg, kind = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 4200);
+}
+function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function m2fmt(v) { return v ? Math.round(v).toLocaleString('es-CO') + ' m²' : '—'; }
+
+// ===================== ARCGIS / WFS HELPERS =====================
+async function fetchJson(url) {
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const txt = await res.text();
+  try { return JSON.parse(txt); }
+  catch (e) { throw new Error('Respuesta no válida del servicio: ' + txt.slice(0, 120)); }
+}
+// Consulta genérica ArcGIS REST → GeoJSON EPSG:4326
+function agsQueryUrl(layerUrl, params) {
+  const base = {
+    outFields: '*', returnGeometry: 'true', outSR: '4326', f: 'geojson',
+    resultRecordCount: 1000,
+  };
+  const all = Object.assign(base, params);
+  return layerUrl.replace(/\/$/, '') + '/query?' + Object.entries(all).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+function agsBBoxParams(w, s, e, n) {
+  return {
+    geometry: `${w},${s},${e},${n}`, geometryType: 'esriGeometryEnvelope',
+    inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+  };
+}
+// Consulta puntual ArcGIS (para normativa) → attrs del primer polígono que contiene el punto
+async function agsPointAttrs(layerUrl, lon, lat) {
+  const url = layerUrl.replace(/\/$/, '') + '/query?' + Object.entries({
+    geometry: `${lon},${lat}`, geometryType: 'esriGeometryPoint', inSR: '4326',
+    spatialRel: 'esriSpatialRelIntersects', outFields: '*', returnGeometry: 'false', f: 'json',
+  }).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  const data = await fetchJson(url);
+  if (data.error) throw new Error(data.error.message || 'Error del servicio');
+  return (data.features && data.features[0]) ? data.features[0].attributes : null;
+}
+
+// Parser GML 3.2 (INSPIRE CadastralParcels · Catastro de España) → features GeoJSON
+// posList viene como "lat lon lat lon ..." cuando se pide EPSG:4326 (urn ogc)
+function parseInspireGML(xml) {
+  const feats = [];
+  const members = xml.split('<cp:CadastralParcel').slice(1);
+  for (const m of members) {
+    const idm = m.match(/gml:id="([^"]+)"/);
+    const ref = m.match(/<cp:nationalCadastralReference>([^<]+)</);
+    const areaM = m.match(/<cp:areaValue[^>]*>([\d.]+)</);
+    const polys = [];
+    const patches = m.split('<gml:PolygonPatch').slice(1);
+    for (const pt of patches) {
+      const rings = [];
+      const posLists = [...pt.matchAll(/<gml:posList[^>]*>([\s\S]*?)<\/gml:posList>/g)];
+      for (const pl of posLists) {
+        const nums = pl[1].trim().split(/\s+/).map(Number);
+        const ring = [];
+        for (let i = 0; i + 1 < nums.length; i += 2) ring.push([nums[i + 1], nums[i]]); // lat lon → [lon,lat]
+        if (ring.length >= 3) rings.push(ring);
+      }
+      if (rings.length) polys.push(rings);
+    }
+    if (!polys.length) continue;
+    const refcat = (ref && ref[1]) || (idm ? idm[1].split('.').pop() : '');
+    feats.push({
+      id: (idm && idm[1]) || refcat,
+      geometry: { type: 'MultiPolygon', coordinates: polys },
+      properties: { REFCAT: refcat, AREA_OFICIAL: areaM ? +areaM[1] : null },
+    });
+  }
+  return feats;
+}
+
+// ===================== CONFIGURACIÓN POR CIUDAD =====================
+const POT_BOGOTA = 'https://serviciosg.sdp.gov.co/server/rest/services/POT555/NORMA_URBAN%C3%8DSTICA_Y_OT/MapServer';
+
+const CITIES = {
+  // ------------------------------------------------ BOGOTÁ ------------------------------------------------
+  bogota: {
+    name: 'BOGOTÁ · AEC', tag: 'CATASTRO · IDECA · WFS', hud: 'BOGOTÁ D.C. · COLOMBIA',
+    attrib: '© OpenStreetMap · Catastro IDECA · SDP POT 555',
+    center: { lat: 4.65297, lon: -74.06075 }, // Chapinero
+    parcelsTitle: 'Lotes de Bogotá (IDECA · WFS)',
+    searchLabel: 'Buscar lote · código de lote (LOTCODIGO) o manzana',
+    searchPlaceholder: 'Ej: 008201026001 (lote) o 008201026 (manzana)',
+    sourceHint: 'Fuente oficial: <b>WFS 2.0 catastro:lote</b> · serviciosgis.catastrobogota.gov.co · EPSG:4326 (coincide con OSM). Normativa: POT Decreto 555/2021 (SDP).',
+    wfs: 'https://serviciosgis.catastrobogota.gov.co/arcgis/services/catastro/lote/MapServer/WFSServer',
+    rest: 'https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/catastro/lote/MapServer/0',
+    async loadByBBox(w, s, e, n) {
+      // WFS 2.0 de ArcGIS: el bbox va en orden lat,lon (eje Y primero)
+      const url = this.wfs + '?' + Object.entries({
+        service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: 'lote:Lote',
+        outputFormat: 'GEOJSON', srsName: 'EPSG:4326', count: 1500,
+        bbox: `${s},${w},${n},${e},EPSG:4326`,
+      }).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+      const data = await fetchJson(url);
+      return data.features || [];
+    },
+    async search(raw) {
+      const code = raw.replace(/\s+/g, '');
+      let where;
+      if (/^\d{1,12}$/.test(code)) where = code.length >= 12 ? `LOTCODIGO='${code}'` : `LOTCODIGO LIKE '${code}%'`;
+      else throw new Error('En Bogotá busca por código de lote (hasta 12 dígitos): sector+manzana+lote');
+      const data = await fetchJson(agsQueryUrl(this.rest, { where, resultRecordCount: 20 }));
+      return data.features || [];
+    },
+    parcelCode(p) { return p.LOTCODIGO || p.Identificador_unico_del_lote || ''; },
+    parcelRows(p) {
+      return [
+        ['Cód. lote', this.parcelCode(p)],
+        ['Manzana', p.MANZCODIGO || p.Codigo_Manzana || '—'],
+        ['Unid. predial', p.LOTUPREDIA || p.Unidad_predial || '—'],
+      ];
+    },
+    links(p, c) {
+      return `<a href="https://mapas.bogota.gov.co/?lat=${c.lat}&lng=${c.lon}&zoom=19" target="_blank" rel="noopener">Ver en Mapas Bogotá ↗</a>`;
+    },
+    // --- Normativa POT 555: tratamiento + altura + edificabilidad + antejardín (volumetría) ---
+    async fetchNorm(c, areaM2) {
+      const q = (id) => agsPointAttrs(`${POT_BOGOTA}/${id}`, c.lon, c.lat).catch(() => null);
+      const [trat, rango, antej, activ, upl] = await Promise.all([q(2), q(14), q(20), q(9), q(16)]);
+      const clean = (v) => { const s = String(v == null ? '' : v).trim(); return s || null; };
+      const pisosTxt = trat ? clean(trat.ALTURA_MAXIMA) : null;
+      const pisosNum = pisosTxt ? (pisosTxt.match(/\d+/) || [null])[0] : null;
+      const pisosMax = pisosNum ? parseInt(pisosNum) : null;
+      const potMax = (pisosMax && areaM2) ? Math.round(areaM2 * pisosMax) : null;
+      const firstText = (o, keys) => { if (!o) return null; for (const k of keys) if (clean(o[k])) return clean(o[k]); return null; };
+      // En Renovación/Desarrollo la altura no es fija: es "resultante" según el tratamiento y sus cargas
+      const alturaTxt = pisosTxt || (trat ? 'Resultante (según tratamiento)' : '—');
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Tratamiento urbanístico</span><span class="pv small">${esc(trat ? `${clean(trat.CODIGO_TRATAMIENTO) || ''} · ${clean(trat.NOMBRE_TRATAMIENTO) || ''}` : '—')}</span></div>
+          <div class="pot-row"><span class="pk">Tipología</span><span class="pv small">${esc((trat && clean(trat.TIPOLOGIA)) || '—')}</span></div>
+          <div class="pot-row"><span class="pk">Altura máxima</span><span class="pv small">${esc(alturaTxt)}</span></div>
+          <div class="pot-row"><span class="pk">Antejardín mín.</span><span class="pv">${esc(antej && antej.DIMENSION != null ? antej.DIMENSION + ' m' : '—')}</span></div>
+          <div class="pot-row"><span class="pk">Rango edificabilidad</span><span class="pv">${esc(rango ? (clean(rango.RANGO) || clean(rango.NOMBRE_AREA) || '—') : '—')}</span></div>
+          <div class="pot-row"><span class="pk">Área de actividad</span><span class="pv small">${esc(firstText(activ, ['NOMBRE_AREA_ACTIVIDAD', 'CODIGO_AREA_ACTIVIDAD']) || '—')}</span></div>
+          <div class="pot-row"><span class="pk">UPL</span><span class="pv small">${esc(firstText(upl, ['NOMBRE', 'NOMBRE_UPL', 'UPL']) || '—')}</span></div>
+          ${potMax ? `<div class="pot-sep"></div>
+          <div class="pot-row total"><span class="pk">Potencial aprox. (huella × pisos)</span><span class="pv">${potMax.toLocaleString()} m²</span></div>` : ''}
+        </div>
+        <div class="hint">POT 555/2021 · SDP capas <b>Tratamiento urbanístico</b>, <b>Rangos de edificabilidad</b>, <b>Antejardines</b>, <b>Áreas de actividad</b>. El potencial es estimado (huella 100%); la edificabilidad exacta depende del tratamiento y sus cargas.</div>`;
+      return { html, norm: { pisosMax, indice: null, tratamiento: trat ? clean(trat.NOMBRE_TRATAMIENTO) : null } };
+    },
+  },
+
+  // ------------------------------------------------ MEDELLÍN ------------------------------------------------
+  medellin: {
+    name: 'MEDELLÍN · AEC', tag: 'CATASTRO · GEOMEDELLÍN', hud: 'MEDELLÍN · ANTIOQUIA · COLOMBIA',
+    attrib: '© OpenStreetMap · Alcaldía de Medellín',
+    center: { lat: 6.24478, lon: -75.57404 }, // Parque de las Luces
+    parcelsTitle: 'Lotes de Medellín',
+    searchLabel: 'Buscar lote · CBML o código',
+    searchPlaceholder: 'Ej: 10080010001',
+    sourceHint: 'El GIS de la Alcaldía (<a href="https://www.medellin.gov.co/geomedellin" target="_blank" rel="noopener">GeoMedellín ↗</a>) restringe el acceso externo por momentos. Pega abajo la URL de la capa de lotes (ArcGIS REST …/MapServer/N o /FeatureServer/N) y se usará como fuente.',
+    configHtml: `
+      <div class="field"><label>URL capa de lotes (ArcGIS REST)</label>
+      <input type="text" id="med-lotes-url" placeholder="https://www.medellin.gov.co/arcgis/rest/services/.../MapServer/0"></div>`,
+    initConfig() {
+      const inp = $('med-lotes-url');
+      inp.value = localStorage.getItem('lc_medellin_lotes_url') || '';
+      inp.onchange = () => localStorage.setItem('lc_medellin_lotes_url', inp.value.trim());
+    },
+    lotesUrl() { return ($('med-lotes-url') && $('med-lotes-url').value.trim()) || localStorage.getItem('lc_medellin_lotes_url') || ''; },
+    async loadByBBox(w, s, e, n) {
+      const url = this.lotesUrl();
+      if (!url) throw new Error('Configura la URL de la capa de lotes de GeoMedellín (panel izquierdo).');
+      const data = await fetchJson(agsQueryUrl(url, agsBBoxParams(w, s, e, n)));
+      if (data.error) throw new Error(data.error.message || 'Error del servicio de Medellín');
+      return data.features || [];
+    },
+    async search(raw) {
+      const url = this.lotesUrl();
+      if (!url) throw new Error('Configura la URL de la capa de lotes de GeoMedellín (panel izquierdo).');
+      const code = raw.replace(/\s+/g, '').toUpperCase();
+      const data = await fetchJson(agsQueryUrl(url, { where: `UPPER(CBML) LIKE '${code}%' OR UPPER(COBAMA) LIKE '${code}%'`, resultRecordCount: 20 }));
+      if (data.error) throw new Error(data.error.message || 'Error en búsqueda');
+      return data.features || [];
+    },
+    parcelCode(p) { return p.CBML || p.cbml || p.COBAMA || p.CODIGO || ''; },
+    parcelRows(p) {
+      const rows = [];
+      for (const k of ['CBML', 'cbml', 'COBAMA', 'DIRECCION', 'direccion', 'BARRIO', 'COMUNA']) if (p[k]) rows.push([k.toUpperCase(), p[k]]);
+      if (!rows.length) rows.push(['Atributos', Object.keys(p).slice(0, 4).map(k => k + ':' + p[k]).join(' · ')]);
+      return rows;
+    },
+    links(p, c) { return `<a href="https://www.medellin.gov.co/geomedellin" target="_blank" rel="noopener">GeoMedellín ↗</a>`; },
+    // --- POT Acuerdo 48/2014: aprovechamientos manuales (IC / IO / altura) ---
+    async fetchNorm(c, areaM2) {
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Norma POT</span><span class="pv small">Acuerdo 48 de 2014 · aprovechamientos por polígono de tratamiento</span></div>
+          <div class="pot-row"><span class="pk">Índice constr. (IC)</span><span class="pv"><input type="number" step="0.1" min="0" id="norm-ic" placeholder="Ej: 2.4"></span></div>
+          <div class="pot-row"><span class="pk">Índice ocupación (IO)</span><span class="pv"><input type="number" step="0.05" min="0" max="1" id="norm-io" placeholder="Ej: 0.7"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 8"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Consulta el polígono de tratamiento y su IC en <a href="https://www.medellin.gov.co/geomedellin" target="_blank" rel="noopener">GeoMedellín ↗</a> y digítalo aquí; alimenta el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, manual: true },
+        wire(state) {
+          const upd = () => {
+            const ic = parseFloat($('norm-ic').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: ic, pisosMax: pisos };
+            $('norm-max').textContent = ic && areaM2 ? Math.round(areaM2 * ic).toLocaleString() + ' m²' : (pisos && areaM2 ? '≈ ' + Math.round(areaM2 * pisos).toLocaleString() + ' m²' : '—');
+          };
+          ['norm-ic', 'norm-io', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ MIAMI LAKES ------------------------------------------------
+  miamilakes: {
+    name: 'MIAMI LAKES', tag: 'MIAMI-DADE GIS · MUNICODE', hud: 'MIAMI LAKES · FLORIDA · USA',
+    attrib: '© OpenStreetMap · Miami-Dade County GIS · Municode',
+    center: { lat: 25.9087, lon: -80.3086 },
+    parcelsTitle: 'Parcelas · Miami-Dade GIS',
+    searchLabel: 'Buscar parcela · FOLIO o dirección',
+    searchPlaceholder: 'Ej: 3220150041290 o 6853 MAIN ST',
+    sourceHint: 'Parcelas: <b>Miami-Dade MD_Emaps/72 (PaParcel)</b> · Zoning municipal: capa 17 · Normativa: <a href="https://library.municode.com/fl/miami_lakes" target="_blank" rel="noopener">Municode · Town of Miami Lakes LDC ↗</a>',
+    parcelLayer: 'https://gisweb.miamidade.gov/arcgis/rest/services/MD_Emaps/MapServer/72',
+    zoningLayer: 'https://gisweb.miamidade.gov/arcgis/rest/services/MD_Emaps/MapServer/17',
+    municode: 'https://library.municode.com/fl/miami_lakes',
+    async loadByBBox(w, s, e, n) {
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, Object.assign(agsBBoxParams(w, s, e, n), {
+        outFields: 'FOLIO,TRUE_SITE_ADDR,TRUE_SITE_CITY,DOR_DESC,LOT_SIZE,YEAR_BUILT,SUBDIVISION', resultRecordCount: 1200,
+      })));
+      if (data.error) throw new Error(data.error.message || 'Error Miami-Dade GIS');
+      return data.features || [];
+    },
+    async search(raw) {
+      const t = raw.trim().toUpperCase().replace(/'/g, "''");
+      const where = /^\d{6,}$/.test(t.replace(/-/g, '')) ? `FOLIO LIKE '${t.replace(/-/g, '')}%'` : `TRUE_SITE_ADDR LIKE '${t}%'`;
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, { where, outFields: 'FOLIO,TRUE_SITE_ADDR,TRUE_SITE_CITY,DOR_DESC,LOT_SIZE,YEAR_BUILT,SUBDIVISION', resultRecordCount: 20 }));
+      if (data.error) throw new Error(data.error.message || 'Error en búsqueda');
+      return data.features || [];
+    },
+    parcelCode(p) { return p.FOLIO || ''; },
+    parcelRows(p) {
+      return [
+        ['Folio', p.FOLIO || '—'],
+        ['Dirección', p.TRUE_SITE_ADDR || '—'],
+        ['Ciudad', p.TRUE_SITE_CITY || '—'],
+        ['Uso (DOR)', p.DOR_DESC || '—'],
+        ['Lote (sqft)', p.LOT_SIZE ? Math.round(p.LOT_SIZE).toLocaleString() : '—'],
+        ['Año constr.', p.YEAR_BUILT || '—'],
+      ];
+    },
+    links(p) {
+      const folio = (p.FOLIO || '').replace(/-/g, '');
+      return `<a href="https://www.miamidade.gov/Apps/PA/propertysearch/#/?folio=${folio}" target="_blank" rel="noopener">Property Appraiser ↗</a> · <a href="${this.municode}" target="_blank" rel="noopener">Municode LDC ↗</a>`;
+    },
+    async fetchNorm(c, areaM2) {
+      let zone = null;
+      try { zone = await agsPointAttrs(this.zoningLayer, c.lon, c.lat); } catch (e) { /* capa caída */ }
+      const zcode = zone ? zone.ZONE : null;
+      const zdesc = zone ? zone.ZONEDESC : null;
+      const muni = zone ? zone.MUNICNAME : null;
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Zoning district</span><span class="pv">${esc(zcode || '—')}</span></div>
+          <div class="pot-row"><span class="pk">Descripción</span><span class="pv small">${esc(zdesc || 'Sin dato en la capa municipal')}</span></div>
+          <div class="pot-row"><span class="pk">Municipio</span><span class="pv small">${esc(muni || 'Miami Lakes')}</span></div>
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">FAR (Municode)</span><span class="pv"><input type="number" step="0.05" min="0" id="norm-far" placeholder="Ej: 1.5"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 4"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Distrito según capa <b>Municipal Zoning</b> de Miami-Dade. Los parámetros volumétricos (FAR, altura, setbacks) están en el <a href="${this.municode}" target="_blank" rel="noopener">Land Development Code (Municode, cap. 13) ↗</a>${zcode ? ` — busca el distrito <b>${esc(zcode)}</b>` : ''} y digítalos aquí para alimentar el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, zoning: zcode, zoningDesc: zdesc },
+        wire(state) {
+          const upd = () => {
+            const far = parseFloat($('norm-far').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: far, pisosMax: pisos, zoning: zcode };
+            $('norm-max').textContent = far && areaM2 ? Math.round(areaM2 * far).toLocaleString() + ' m²' : '—';
+          };
+          ['norm-far', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ BOCA RATÓN ------------------------------------------------
+  bocaraton: {
+    name: 'BOCA RATÓN', tag: 'FL CADASTRAL · MUNICODE', hud: 'BOCA RATON · FLORIDA · USA',
+    attrib: '© OpenStreetMap · Florida GIO Cadastral · Municode',
+    center: { lat: 26.3587, lon: -80.0831 },
+    parcelsTitle: 'Parcelas · Florida Statewide',
+    searchLabel: 'Buscar parcela · Parcel ID o dirección',
+    searchPlaceholder: 'Ej: 06424729070080110 o 201 W PALMETTO PARK RD',
+    sourceHint: 'Parcelas: <b>Florida Statewide Cadastral (FGIO)</b> · Normativa: <a href="https://library.municode.com/fl/boca_raton" target="_blank" rel="noopener">Municode · City of Boca Raton Code cap. 28 (Zoning) ↗</a>',
+    parcelLayer: 'https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0',
+    municode: 'https://library.municode.com/fl/boca_raton',
+    // Distritos del Cap. 28 del Code of Ordinances (Municode) para preselección
+    districts: ['R-1-A Unifamiliar', 'R-1-B Unifamiliar', 'R-1-C Unifamiliar', 'R-1-D Unifamiliar', 'R-1-E Unifamiliar',
+      'R-2 Bifamiliar', 'R-3 Multifamiliar', 'R-3-A Multifamiliar', 'R-4 Multifamiliar', 'R-5 Multifamiliar/Hotel',
+      'B-1 Comercial local', 'B-2 Comercial general', 'B-3 Comercial intensivo', 'M-1 Industrial ligera', 'M-2 Industrial', 'M-3 Industrial',
+      'PUD Desarrollo planificado', 'DDRI Downtown', 'Otro (ver Municode)'],
+    outFieldsList: 'PARCEL_ID,OWN_NAME,PHY_ADDR1,PHY_CITY,PHY_ZIPCD,LND_SQFOOT,DOR_UC,ACT_YR_BLT,TOT_LVG_AR,JV',
+    async loadByBBox(w, s, e, n) {
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, Object.assign(agsBBoxParams(w, s, e, n), {
+        outFields: this.outFieldsList, resultRecordCount: 1200,
+      })));
+      if (data.error) throw new Error(data.error.message || 'Error Florida Cadastral');
+      return data.features || [];
+    },
+    async search(raw) {
+      const t = raw.trim().toUpperCase().replace(/'/g, "''");
+      const where = /^\d{8,}$/.test(t) ? `PARCEL_ID LIKE '${t}%'` : `UPPER(PHY_ADDR1) LIKE '${t}%' AND UPPER(PHY_CITY) LIKE 'BOCA%'`;
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, { where, outFields: this.outFieldsList, resultRecordCount: 20 }));
+      if (data.error) throw new Error(data.error.message || 'Error en búsqueda');
+      return data.features || [];
+    },
+    parcelCode(p) { return p.PARCEL_ID || ''; },
+    parcelRows(p) {
+      return [
+        ['Parcel ID', p.PARCEL_ID || '—'],
+        ['Dirección', (p.PHY_ADDR1 || '—') + (p.PHY_CITY ? ', ' + p.PHY_CITY : '')],
+        ['Propietario', p.OWN_NAME || '—'],
+        ['Lote (sqft)', p.LND_SQFOOT ? Math.round(p.LND_SQFOOT).toLocaleString() : '—'],
+        ['Área constr. (sqft)', p.TOT_LVG_AR ? Math.round(p.TOT_LVG_AR).toLocaleString() : '—'],
+        ['Año constr.', p.ACT_YR_BLT || '—'],
+        ['Avalúo (JV)', p.JV ? '$' + Math.round(p.JV).toLocaleString('en-US') : '—'],
+      ];
+    },
+    links(p) {
+      return `<a href="https://pbcpao.gov/Property/Details?parcelId=${encodeURIComponent(p.PARCEL_ID || '')}" target="_blank" rel="noopener">PBC Property Appraiser ↗</a> · <a href="${this.municode}" target="_blank" rel="noopener">Municode ↗</a>`;
+    },
+    async fetchNorm(c, areaM2) {
+      const opts = this.districts.map(d => `<option>${esc(d)}</option>`).join('');
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Distrito de zoning</span></div>
+          <select id="norm-district"><option value="">— Selecciona el distrito (Cap. 28 Municode) —</option>${opts}</select>
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">FAR (Municode)</span><span class="pv"><input type="number" step="0.05" min="0" id="norm-far" placeholder="Ej: 1.0"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 3"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Boca Ratón no publica capa de zoning abierta: identifica el distrito en el <a href="https://www.myboca.us" target="_blank" rel="noopener">GIS municipal ↗</a> o el plano de zoning, y toma FAR/altura/setbacks del <a href="${this.municode}" target="_blank" rel="noopener">Code of Ordinances cap. 28 (Municode) ↗</a>.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null },
+        wire(state) {
+          const upd = () => {
+            const far = parseFloat($('norm-far').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            const dist = $('norm-district').value || null;
+            state.selectedParcel.norm = { indice: far, pisosMax: pisos, zoning: dist };
+            $('norm-max').textContent = far && areaM2 ? Math.round(areaM2 * far).toLocaleString() + ' m²' : '—';
+          };
+          ['norm-far', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+          if ($('norm-district')) $('norm-district').onchange = upd;
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ DELRAY BEACH ------------------------------------------------
+  delraybeach: {
+    name: 'DELRAY BEACH', tag: 'CITY GIS · MUNICODE LDR', hud: 'DELRAY BEACH · FLORIDA · USA',
+    attrib: '© OpenStreetMap · City of Delray Beach GIS · FGIO · Municode',
+    center: { lat: 26.46150, lon: -80.07280 }, // Atlantic Ave / Old School Square
+    parcelsTitle: 'Parcelas · Florida Statewide',
+    searchLabel: 'Buscar parcela · Parcel ID o dirección',
+    searchPlaceholder: 'Ej: 12434616010040010 o 100 NW 1ST AVE',
+    sourceHint: 'Parcelas: <b>Florida Statewide Cadastral (FGIO)</b> · Zoning: capa oficial del <b>City of Delray Beach GIS</b> · Normativa: <a href="https://library.municode.com/fl/delray_beach" target="_blank" rel="noopener">Municode · Land Development Regulations (LDR, art. 4.4) ↗</a>',
+    parcelLayer: 'https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0',
+    zoningLayer: 'https://utility.arcgis.com/usrsvcs/servers/35d7382b2b094dffa6c97d2eb7b7556e/rest/services/EnterpriseGIS_View/GIS_View/FeatureServer/21',
+    municode: 'https://library.municode.com/fl/delray_beach',
+    // Distritos del LDR art. 4.4 (nombres oficiales; parámetros: ver la sección en Municode)
+    ldr: {
+      'R-1-A': 'Single Family Residential', 'R-1-AA': 'Single Family Residential', 'R-1-AAA': 'Single Family Residential', 'R-1-AAB': 'Single Family Residential',
+      'RL': 'Low Density Residential', 'RM': 'Medium Density Residential', 'PRD': 'Planned Residential', 'RO': 'Residential Office',
+      'CBD': 'Central Business District', 'CBD-RC': 'CBD - Railroad Corridor', 'OSSHAD': 'Old School Square Historic Arts District',
+      'GC': 'General Commercial', 'AC': 'Automotive Commercial', 'NC': 'Neighborhood Commercial', 'PC': 'Planned Commercial',
+      'POD': 'Professional Office', 'POC': 'Planned Office Center', 'MIC': 'Mixed Industrial & Commercial', 'I': 'Industrial',
+      'CF': 'Community Facilities', 'OS': 'Open Space', 'OSR': 'Open Space & Recreation',
+    },
+    outFieldsList: 'PARCEL_ID,OWN_NAME,PHY_ADDR1,PHY_CITY,PHY_ZIPCD,LND_SQFOOT,DOR_UC,ACT_YR_BLT,TOT_LVG_AR,JV',
+    async loadByBBox(w, s, e, n) {
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, Object.assign(agsBBoxParams(w, s, e, n), {
+        outFields: this.outFieldsList, resultRecordCount: 1200,
+      })));
+      if (data.error) throw new Error(data.error.message || 'Error Florida Cadastral');
+      return data.features || [];
+    },
+    async search(raw) {
+      const t = raw.trim().toUpperCase().replace(/'/g, "''");
+      const where = /^\d{8,}$/.test(t) ? `PARCEL_ID LIKE '${t}%'` : `UPPER(PHY_ADDR1) LIKE '${t}%' AND UPPER(PHY_CITY) LIKE 'DELRAY%'`;
+      const data = await fetchJson(agsQueryUrl(this.parcelLayer, { where, outFields: this.outFieldsList, resultRecordCount: 20 }));
+      if (data.error) throw new Error(data.error.message || 'Error en búsqueda');
+      return data.features || [];
+    },
+    parcelCode(p) { return p.PARCEL_ID || ''; },
+    parcelRows(p) {
+      return [
+        ['Parcel ID', p.PARCEL_ID || '—'],
+        ['Dirección', (p.PHY_ADDR1 || '—') + (p.PHY_CITY ? ', ' + p.PHY_CITY : '')],
+        ['Propietario', p.OWN_NAME || '—'],
+        ['Lote (sqft)', p.LND_SQFOOT ? Math.round(p.LND_SQFOOT).toLocaleString() : '—'],
+        ['Área constr. (sqft)', p.TOT_LVG_AR ? Math.round(p.TOT_LVG_AR).toLocaleString() : '—'],
+        ['Año constr.', p.ACT_YR_BLT || '—'],
+        ['Avalúo (JV)', p.JV ? '$' + Math.round(p.JV).toLocaleString('en-US') : '—'],
+      ];
+    },
+    links(p) {
+      return `<a href="https://pbcpao.gov/Property/Details?parcelId=${encodeURIComponent(p.PARCEL_ID || '')}" target="_blank" rel="noopener">PBC Property Appraiser ↗</a> · <a href="${this.municode}" target="_blank" rel="noopener">Municode LDR ↗</a>`;
+    },
+    municodeSearch(q) { return `${this.municode}/search?searchText=${encodeURIComponent(q)}`; },
+    // Panel interactivo Municode: distrito detectado por GIS + explorador de distritos + calculadora
+    async fetchNorm(c, areaM2) {
+      let zone = null;
+      try { zone = await agsPointAttrs(this.zoningLayer, c.lon, c.lat); } catch (e) { /* capa caída */ }
+      const zcode = zone ? String(zone.ABRV || '').trim() : null;
+      const zname = zone ? (zone.DISTRICT || this.ldr[zcode] || '') : '';
+      const zgen = zone ? (zone.GEN || '') : '';
+      const self = this;
+      const opts = Object.entries(this.ldr).map(([k, v]) => `<option value="${esc(k)}" ${k === zcode ? 'selected' : ''}>${esc(k)} · ${esc(v)}</option>`).join('');
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Zoning (GIS oficial)</span><span class="pv">${esc(zcode || '—')}</span></div>
+          <div class="pot-row"><span class="pk">Distrito</span><span class="pv small">${esc(zname || 'Sin dato en la capa')}</span></div>
+          <div class="pot-row"><span class="pk">Categoría</span><span class="pv small">${esc(zgen || '—')}</span></div>
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">Explorar distritos LDR 4.4</span></div>
+          <select id="norm-district">${opts}</select>
+          <div class="pot-row"><span class="pk"></span><span class="pv small"><a id="norm-municode-link" href="${this.municodeSearch(zcode || 'zoning district')}" target="_blank" rel="noopener">Abrir "${esc(zcode || 'zoning')}" en Municode ↗</a></span></div>
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">FAR (Municode)</span><span class="pv"><input type="number" step="0.05" min="0" id="norm-far" placeholder="Ej: 1.0"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 4"></span></div>
+          <div class="pot-row"><span class="pk">Retiro frontal (ft)</span><span class="pv"><input type="number" step="1" min="0" id="norm-setback" placeholder="Ej: 10"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Distrito según la capa <b>Zoning</b> del GIS municipal. Cambia el distrito arriba y el enlace salta a esa sección del <a href="${this.municode}" target="_blank" rel="noopener">LDR en Municode ↗</a> (art. 4.4: usos, FAR, alturas y setbacks); digita FAR/pisos para alimentar el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, zoning: zcode, zoningDesc: zname },
+        wire(state) {
+          const link = $('norm-municode-link');
+          const upd = () => {
+            const far = parseFloat($('norm-far').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            const dist = $('norm-district').value || zcode;
+            state.selectedParcel.norm = { indice: far, pisosMax: pisos, zoning: dist };
+            $('norm-max').textContent = far && areaM2 ? Math.round(areaM2 * far).toLocaleString() + ' m²' : '—';
+          };
+          $('norm-district').onchange = () => {
+            const d = $('norm-district').value;
+            link.href = self.municodeSearch(d + ' ' + (self.ldr[d] || ''));
+            link.textContent = `Abrir "${d}" en Municode ↗`;
+            upd();
+          };
+          ['norm-far', 'norm-pisos', 'norm-setback'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ CARTAGENA ------------------------------------------------
+  cartagena: {
+    name: 'CARTAGENA · AEC', tag: 'MIDAS · POT', hud: 'CARTAGENA DE INDIAS · BOLÍVAR · COLOMBIA',
+    attrib: '© OpenStreetMap · Alcaldía de Cartagena (MIDAS)',
+    center: { lat: 10.42272, lon: -75.54792 }, // Centro Histórico
+    parcelsTitle: 'Lotes de Cartagena',
+    searchLabel: 'Buscar lote · referencia catastral',
+    searchPlaceholder: 'Ej: 010100010001000',
+    sourceHint: 'El GIS oficial (<a href="https://midas.cartagena.gov.co" target="_blank" rel="noopener">MIDAS ↗</a>) protege el acceso externo con Cloudflare. Pega abajo la URL de una capa de lotes (ArcGIS REST …/MapServer/N o /FeatureServer/N) para usarla como fuente. Normativa: POT Decreto 0977 de 2001 (vigente) y proceso POT 2025.',
+    configHtml: `
+      <div class="field"><label>URL capa de lotes (ArcGIS REST)</label>
+      <input type="text" id="ctg-lotes-url" placeholder="https://midas.cartagena.gov.co/arcgis/rest/services/.../MapServer/0"></div>`,
+    initConfig() {
+      const inp = $('ctg-lotes-url');
+      inp.value = localStorage.getItem('lc_cartagena_lotes_url') || '';
+      inp.onchange = () => localStorage.setItem('lc_cartagena_lotes_url', inp.value.trim());
+    },
+    lotesUrl() { return ($('ctg-lotes-url') && $('ctg-lotes-url').value.trim()) || localStorage.getItem('lc_cartagena_lotes_url') || ''; },
+    async loadByBBox(w, s, e, n) {
+      const url = this.lotesUrl();
+      if (!url) throw new Error('Configura la URL de la capa de lotes de MIDAS (panel izquierdo).');
+      const data = await fetchJson(agsQueryUrl(url, agsBBoxParams(w, s, e, n)));
+      if (data.error) throw new Error(data.error.message || 'Error del servicio de Cartagena');
+      return data.features || [];
+    },
+    async search(raw) {
+      const url = this.lotesUrl();
+      if (!url) throw new Error('Configura la URL de la capa de lotes de MIDAS (panel izquierdo).');
+      const code = raw.replace(/\s+/g, '').toUpperCase();
+      const data = await fetchJson(agsQueryUrl(url, { where: `UPPER(REFERENCIA) LIKE '${code}%' OR UPPER(CODIGO) LIKE '${code}%'`, resultRecordCount: 20 }));
+      if (data.error) throw new Error(data.error.message || 'Error en búsqueda');
+      return data.features || [];
+    },
+    parcelCode(p) { return p.REFERENCIA || p.referencia || p.CODIGO || p.codigo || ''; },
+    parcelRows(p) {
+      const rows = [];
+      for (const k of ['REFERENCIA', 'CODIGO', 'DIRECCION', 'direccion', 'BARRIO', 'barrio']) if (p[k]) rows.push([k.toUpperCase(), p[k]]);
+      if (!rows.length) rows.push(['Atributos', Object.keys(p).slice(0, 4).map(k => k + ':' + p[k]).join(' · ')]);
+      return rows;
+    },
+    links() { return `<a href="https://midas.cartagena.gov.co" target="_blank" rel="noopener">MIDAS Cartagena ↗</a>`; },
+    async fetchNorm(c, areaM2) {
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Norma POT</span><span class="pv small">Decreto 0977 de 2001 · edificabilidad por tratamiento y área de actividad</span></div>
+          <div class="pot-row"><span class="pk">Índice constr. (IC)</span><span class="pv"><input type="number" step="0.1" min="0" id="norm-ic" placeholder="Ej: 2.5"></span></div>
+          <div class="pot-row"><span class="pk">Índice ocupación (IO)</span><span class="pv"><input type="number" step="0.05" min="0" max="1" id="norm-io" placeholder="Ej: 0.7"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 5"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Consulta el tratamiento del predio en <a href="https://midas.cartagena.gov.co" target="_blank" rel="noopener">MIDAS ↗</a> y toma IC/IO/altura del POT (Dec. 0977/2001; en Centro Histórico rige el PEMP). Digítalos aquí para alimentar el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, manual: true },
+        wire(state) {
+          const upd = () => {
+            const ic = parseFloat($('norm-ic').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: ic, pisosMax: pisos };
+            $('norm-max').textContent = ic && areaM2 ? Math.round(areaM2 * ic).toLocaleString() + ' m²' : (pisos && areaM2 ? '≈ ' + Math.round(areaM2 * pisos).toLocaleString() + ' m²' : '—');
+          };
+          ['norm-ic', 'norm-io', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ QUITO ------------------------------------------------
+  quito: {
+    name: 'QUITO · DMQ', tag: 'PUOS · IRM', hud: 'QUITO · PICHINCHA · ECUADOR',
+    attrib: '© OpenStreetMap · PUOS DMQ (referencia) · Municipio de Quito',
+    center: { lat: -0.20200, lon: -78.49050 }, // La Mariscal
+    parcelsTitle: 'Zonificación PUOS (polígonos)',
+    searchLabel: 'Buscar',
+    searchPlaceholder: 'Usa "Cargar zonas en vista actual" y clic en la zona',
+    sourceHint: 'Se cargan los <b>polígonos de zonificación del PUOS</b> (copia de referencia en ArcGIS Online; el geoportal municipal restringe acceso externo). El código de zonificación trae <b>pisos y COS</b>. Verifica siempre el <a href="https://pam.quito.gob.ec" target="_blank" rel="noopener">IRM oficial ↗</a> del predio.',
+    puosLayer: 'https://services1.arcgis.com/UOl0yzPDLol8nS3m/arcgis/rest/services/PUOS_Quito/FeatureServer/1',
+    async loadByBBox(w, s, e, n) {
+      const data = await fetchJson(agsQueryUrl(this.puosLayer, Object.assign(agsBBoxParams(w, s, e, n), {
+        outFields: 'ZONIFICACI,COD_ZONIFI,USO_VIGENT,USO_CODIGO,CLASIFICAC', resultRecordCount: 400,
+      })));
+      if (data.error) throw new Error(data.error.message || 'Error consultando PUOS');
+      return data.features || [];
+    },
+    async search() {
+      throw new Error('En Quito no hay búsqueda por código: usa "Cargar zonas en vista actual" y haz clic en una zona. El IRM por predio está en pam.quito.gob.ec.');
+    },
+    parcelCode(p) { return p.ZONIFICACI || ''; },
+    parcelRows(p) {
+      return [
+        ['Zonificación', p.ZONIFICACI || '—'],
+        ['Cód. zona', p.COD_ZONIFI || '—'],
+        ['Uso vigente', (p.USO_VIGENT || '—') + (p.USO_CODIGO ? ' (' + p.USO_CODIGO + ')' : '')],
+        ['Clasificación', p.CLASIFICAC || '—'],
+      ];
+    },
+    links() { return `<a href="https://pam.quito.gob.ec" target="_blank" rel="noopener">IRM oficial (PAM Quito) ↗</a>`; },
+    // Decodifica p.ej. "C203-60": C = continua · lote mín 200 m² · 3 pisos · COS PB 60% → COS total 180%
+    decode(z) {
+      const m = String(z || '').trim().match(/^([A-Z])(\d+?)(\d{2})-(\d+)/);
+      if (!m) return null;
+      const pisos = parseInt(m[3]);
+      const cosPB = parseInt(m[4]);
+      return { forma: m[1], loteMin: parseInt(m[2]) * 100, pisos, cosPB, cosTotal: pisos * cosPB };
+    },
+    async fetchNorm(c, areaM2) {
+      const props = (state.selectedParcel && state.selectedParcel.props) || {};
+      const d = this.decode(props.ZONIFICACI);
+      const formas = { A: 'Aislada', B: 'Pareada', C: 'Continua', D: 'Continua sobre línea de fábrica', H: 'Especial' };
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Zonificación PUOS</span><span class="pv">${esc(props.ZONIFICACI || '—')}</span></div>
+          ${d ? `
+          <div class="pot-row"><span class="pk">Forma de ocupación</span><span class="pv small">${esc(formas[d.forma] || d.forma)}</span></div>
+          <div class="pot-row"><span class="pk">Lote mínimo</span><span class="pv">${d.loteMin.toLocaleString()} m²</span></div>
+          <div class="pot-row"><span class="pk">Altura máx</span><span class="pv">${d.pisos} pisos</span></div>
+          <div class="pot-row"><span class="pk">COS PB</span><span class="pv">${d.cosPB}%</span></div>
+          <div class="pot-row"><span class="pk">COS TOTAL (índice)</span><span class="pv">${d.cosTotal}%</span></div>` : `
+          <div class="pot-row"><span class="pk">Decodificación</span><span class="pv small">No estándar — verificar IRM</span></div>`}
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">Ajustar índice (COS total /100)</span><span class="pv"><input type="number" step="0.1" min="0" id="norm-ic" value="${d ? (d.cosTotal / 100).toFixed(2) : ''}" placeholder="Ej: 1.8"></span></div>
+          <div class="pot-row"><span class="pk">Ajustar pisos</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" value="${d ? d.pisos : ''}" placeholder="Ej: 3"></span></div>
+        </div>
+        <div class="hint">PUOS del DMQ (capa de referencia). El código encierra pisos y COS; el <a href="https://pam.quito.gob.ec" target="_blank" rel="noopener">IRM oficial ↗</a> del predio manda. El área usada es la del polígono de zona, no la del lote: ajusta el área del lote en el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: d ? d.pisos : null, indice: d ? d.cosTotal / 100 : null, zoning: props.ZONIFICACI || null },
+        wire(state) {
+          const upd = () => {
+            const ic = parseFloat($('norm-ic').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: ic, pisosMax: pisos, zoning: props.ZONIFICACI || null };
+          };
+          ['norm-ic', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+          upd();
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ BUENOS AIRES ------------------------------------------------
+  buenosaires: {
+    name: 'BUENOS AIRES', tag: 'CATASTRO CABA · CÓD. URBANÍSTICO', hud: 'CIUDAD AUTÓNOMA DE BUENOS AIRES · ARGENTINA',
+    attrib: '© OpenStreetMap · GCBA (USIG/epok) · Código Urbanístico',
+    center: { lat: -34.61177, lon: -58.42430 }, // Almagro
+    parcelsTitle: 'Parcelas CABA (USIG · epok)',
+    searchLabel: 'Buscar parcela · dirección o SMP',
+    searchPlaceholder: 'Ej: Gascón 72 · o SMP 017-052-034',
+    sourceHint: 'Catastro oficial CABA vía <b>epok/USIG</b> (parcela por dirección o SMP sección-manzana-parcela). La carga por área no está disponible: busca parcela por parcela. Normativa: <a href="https://buenosaires.gob.ar/desarrollourbano/codigo-urbanistico" target="_blank" rel="noopener">Código Urbanístico ↗</a>.',
+    epok: 'https://epok.buenosaires.gob.ar',
+    async loadByBBox() {
+      throw new Error('CABA no expone consulta por área: busca por dirección (ej. "Gascón 72") o SMP (ej. 017-052-034).');
+    },
+    async search(raw) {
+      const t = raw.trim();
+      let smp = null;
+      const m = t.match(/^(\d{1,3})-(\d{1,3})-(\d{1,3})([A-Za-z]?)$/);
+      if (m) smp = m[1].padStart(3, '0') + '-' + m[2].padStart(3, '0') + '-' + m[3].padStart(3, '0') + (m[4] || '');
+      else {
+        const norm = await fetchJson('https://servicios.usig.buenosaires.gob.ar/normalizar/?direccion=' + encodeURIComponent(t) + '&geocodificar=true&srid=4326');
+        const d = (norm.direccionesNormalizadas || [])[0];
+        if (!d || !d.coordenadas) throw new Error('Dirección no encontrada en CABA: ' + t);
+        // El geocodificador cae sobre el eje de calle: sondea un anillo de puntos (~10-20 m)
+        // y elige la parcela cuya dirección coincida con la normalizada.
+        const x0 = +d.coordenadas.x, y0 = +d.coordenadas.y;
+        const offs = [[0, 0]];
+        for (const r of [0.00012, 0.00022]) for (let a = 0; a < 8; a++) offs.push([r * Math.cos(a * Math.PI / 4), r * Math.sin(a * Math.PI / 4)]);
+        const objetivo = (d.direccion || t).toUpperCase().replace(/,.*$/, '').trim();
+        let mejor = null;
+        for (const [dx, dy] of offs) {
+          let par = null;
+          try { par = await fetchJson(`${this.epok}/catastro/parcela/?x=${x0 + dx}&y=${y0 + dy}`); } catch (e) { continue; }
+          if (!par || !par.smp) continue;
+          if ((par.direccion || '').toUpperCase().trim() === objetivo) { mejor = par; break; }
+          if (!mejor) mejor = par;
+        }
+        if (!mejor) throw new Error('No hay parcela junto a esa dirección.');
+        smp = mejor.smp;
+      }
+      const [attrs, geo] = await Promise.all([
+        fetchJson(`${this.epok}/catastro/parcela/?smp=${encodeURIComponent(smp)}`),
+        fetchJson(`${this.epok}/catastro/geometria/?smp=${encodeURIComponent(smp)}&srid=4326`),
+      ]);
+      const feats = (geo && geo.features) || [];
+      if (!feats.length) throw new Error('Parcela sin geometría: ' + smp);
+      feats[0].id = 'smp_' + smp;
+      feats[0].properties = Object.assign({}, feats[0].properties, attrs);
+      return [feats[0]];
+    },
+    parcelCode(p) { return p.smp || ''; },
+    parcelRows(p) {
+      return [
+        ['SMP', p.smp || '—'],
+        ['Dirección', p.direccion || '—'],
+        ['Superficie', p.superficie_total ? p.superficie_total + ' m²' : '—'],
+        ['Frente/Fondo', (p.frente || '—') + ' / ' + (p.fondo || '—') + ' m'],
+        ['Pisos actuales', p.pisos_sobre_rasante || '—'],
+        ['Sup. cubierta', p.superficie_cubierta ? p.superficie_cubierta + ' m²' : '—'],
+      ];
+    },
+    links(p, c) { return `<a href="https://mapa.buenosaires.gob.ar/comollego/?lat=${c.lat}&lng=${c.lon}" target="_blank" rel="noopener">Mapa BA ↗</a> · <a href="https://buenosaires.gob.ar/desarrollourbano/codigo-urbanistico" target="_blank" rel="noopener">Código Urbanístico ↗</a>`; },
+    async fetchNorm(c, areaM2) {
+      let du = null;
+      try { du = await fetchJson(`https://ws.usig.buenosaires.gob.ar/datos_utiles/?x=${c.lon}&y=${c.lat}`); } catch (e) { /* opcional */ }
+      const dist = du ? (du.codigo_de_planeamiento_urbano || null) : null;
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Distrito (CPU/CU)</span><span class="pv">${esc(dist || '—')}</span></div>
+          <div class="pot-row"><span class="pk">Barrio · Comuna</span><span class="pv small">${esc(du ? `${du.barrio || '—'} · ${du.comuna || '—'}` : '—')}</span></div>
+          <div class="pot-sep"></div>
+          <div class="pot-row"><span class="pk">FOT / índice</span><span class="pv"><input type="number" step="0.1" min="0" id="norm-ic" placeholder="Ej: 2.5"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (pisos)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 6"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Distrito según USIG. El <b>Código Urbanístico</b> (Ley 6099 y modif.) define la edificabilidad por <b>Unidad de Sustentabilidad</b> (U.S.A.A./M/B, corredores) con alturas máximas en metros: tómalas del <a href="https://buenosaires.gob.ar/desarrollourbano/codigo-urbanistico" target="_blank" rel="noopener">CU ↗</a> y digítalas aquí.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, zoning: dist },
+        wire(state) {
+          const upd = () => {
+            const ic = parseFloat($('norm-ic').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: ic, pisosMax: pisos, zoning: dist };
+            $('norm-max').textContent = ic && areaM2 ? Math.round(areaM2 * ic).toLocaleString() + ' m²' : '—';
+          };
+          ['norm-ic', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+
+  // ------------------------------------------------ MADRID ------------------------------------------------
+  madrid: {
+    name: 'MADRID', tag: 'CATASTRO INSPIRE · PGOUM', hud: 'MADRID · COMUNIDAD DE MADRID · ESPAÑA',
+    attrib: '© OpenStreetMap · D.G. Catastro (INSPIRE) · Ayto. Madrid',
+    center: { lat: 40.41690, lon: -3.70350 }, // Puerta del Sol
+    parcelsTitle: 'Parcelas · Catastro de España (WFS INSPIRE)',
+    searchLabel: 'Buscar parcela · referencia catastral (14 dígitos)',
+    searchPlaceholder: 'Ej: 0345503VK4704E',
+    sourceHint: 'Fuente oficial: <b>WFS INSPIRE CadastralParcel</b> · ovc.catastro.meh.es · EPSG:4326 (coincide con OSM). Normativa: <a href="https://sigma.madrid.es/visualizadorurbanistico/" target="_blank" rel="noopener">Visualizador Urbanístico (PGOUM) ↗</a>.',
+    wfs: 'https://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx',
+    async loadByBBox(w, s, e, n) {
+      const url = this.wfs + '?' + Object.entries({
+        service: 'WFS', version: '2.0.0', request: 'GetFeature', typenames: 'cp:CadastralParcel',
+        srsname: 'urn:ogc:def:crs:EPSG::4326', count: 800,
+        bbox: `${s},${w},${n},${e},urn:ogc:def:crs:EPSG::4326`,
+      }).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+      const res = await fetch(url);
+      const xml = await res.text();
+      if (/ExceptionReport/i.test(xml)) throw new Error('WFS Catastro: ' + (xml.match(/<ows:ExceptionText>([^<]*)/) || ['', 'error'])[1]);
+      return parseInspireGML(xml);
+    },
+    async search(raw) {
+      const ref = raw.replace(/\s+/g, '').toUpperCase();
+      if (!/^[0-9A-Z]{14}$/.test(ref)) throw new Error('Usa la referencia catastral de parcela (14 caracteres), ej. 0345503VK4704E');
+      const url = this.wfs + `?service=WFS&version=2.0.0&request=GetFeature&STOREDQUERIE_ID=GetParcel&storedquery_id=GetParcel&refcat=${ref}&srsname=urn:ogc:def:crs:EPSG::4326`;
+      const res = await fetch(url);
+      const xml = await res.text();
+      const feats = parseInspireGML(xml);
+      if (!feats.length) throw new Error('Referencia no encontrada: ' + ref);
+      return feats;
+    },
+    parcelCode(p) { return p.REFCAT || ''; },
+    parcelRows(p) {
+      return [
+        ['Ref. catastral', p.REFCAT || '—'],
+        ['Área oficial', p.AREA_OFICIAL ? Math.round(p.AREA_OFICIAL).toLocaleString() + ' m²' : '—'],
+      ];
+    },
+    links(p) {
+      const rc = p.REFCAT || '';
+      return `<a href="https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCListaBienes.aspx?rc1=${rc.slice(0, 7)}&rc2=${rc.slice(7, 14)}" target="_blank" rel="noopener">Sede Catastro ↗</a> · <a href="https://sigma.madrid.es/visualizadorurbanistico/" target="_blank" rel="noopener">Visualizador Urbanístico ↗</a>`;
+    },
+    async fetchNorm(c, areaM2) {
+      const html = `
+        <div class="pot">
+          <div class="pot-row"><span class="pk">Norma</span><span class="pv small">PGOUM 1997 · calificación y edificabilidad por Norma Zonal / APE-API</span></div>
+          <div class="pot-row"><span class="pk">Edificabilidad (m²/m²)</span><span class="pv"><input type="number" step="0.1" min="0" id="norm-ic" placeholder="Ej: 3.0"></span></div>
+          <div class="pot-row"><span class="pk">Altura máx (plantas)</span><span class="pv"><input type="number" step="1" min="0" id="norm-pisos" placeholder="Ej: 6"></span></div>
+          <div class="pot-row total"><span class="pk">Edificabilidad máx.</span><span class="pv" id="norm-max">—</span></div>
+        </div>
+        <div class="hint">Consulta la <b>Norma Zonal</b> del ámbito en el <a href="https://sigma.madrid.es/visualizadorurbanistico/" target="_blank" rel="noopener">Visualizador Urbanístico del Ayuntamiento ↗</a> (calificación, edificabilidad, alturas NZ 1–9) y digítala aquí para el estudio de masas.</div>`;
+      return {
+        html,
+        norm: { pisosMax: null, indice: null, manual: true },
+        wire(state) {
+          const upd = () => {
+            const ic = parseFloat($('norm-ic').value) || null;
+            const pisos = parseInt($('norm-pisos').value) || null;
+            state.selectedParcel.norm = { indice: ic, pisosMax: pisos };
+            $('norm-max').textContent = ic && areaM2 ? Math.round(areaM2 * ic).toLocaleString() + ' m²' : '—';
+          };
+          ['norm-ic', 'norm-pisos'].forEach(id => { if ($(id)) $(id).oninput = upd; });
+        }
+      };
+    },
+  },
+};
+
+const CITY_ID = (new URLSearchParams(location.search).get('city') || 'bogota').toLowerCase();
+const CITY = CITIES[CITY_ID] || CITIES.bogota;
+const STORAGE_KEY = 'lc_props_' + CITY_ID;
+
+// ===================== STATE =====================
+const state = {
+  projects: [],
+  selectedId: null,
+  focalId: null,
+  ifcCount: 0,
+  pcdCount: 0,
+  centerLat: CITY.center.lat,
+  centerLon: CITY.center.lon,
+  parcelRadius: 350,
+  parcels: new Map(),
+  selectedParcel: null,   // { props, centroid, ring, areaM2, norm }
+  basemapLoaded: false,
+  photos: [],
+  photoTimer: null,
+  waTimer: null,
+};
+
+// ===================== GEO HELPERS =====================
+const R = 6378137;
+function latLonToLocal(lat, lon) {
+  const dLat = (lat - state.centerLat) * Math.PI / 180;
+  const dLon = (lon - state.centerLon) * Math.PI / 180;
+  const x = dLon * R * Math.cos(state.centerLat * Math.PI / 180);
+  const z = -dLat * R;
+  return { x, z };
+}
+function localToLatLon(x, z) {
+  const lat = state.centerLat + (-z / R) * 180 / Math.PI;
+  const lon = state.centerLon + (x / (R * Math.cos(state.centerLat * Math.PI / 180))) * 180 / Math.PI;
+  return { lat, lon };
+}
+function ringAreaM2(ring) {
+  // Shoelace sobre proyección local (m²) — no depende de SHAPE.AREA del servicio
+  let a = 0;
+  const pts = ring.map(([lon, lat]) => latLonToLocal(lat, lon));
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) a += (pts[j].x * pts[i].z - pts[i].x * pts[j].z);
+  return Math.abs(a / 2);
+}
+
+// ===================== THREE SETUP =====================
+const canvas = $('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x05080d, 1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x05080d, 4000, 12000);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 30000);
+camera.position.set(1200, 1100, 1200);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 30;
+controls.maxDistance = 10000;
+scene.add(new THREE.AmbientLight(0x4a5878, 0.7));
+const sun = new THREE.DirectionalLight(0xffd9a0, 1.1);
+sun.position.set(2000, 3000, 1500); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x6080ff, 0.3);
+fill.position.set(-1500, 1000, -2000); scene.add(fill);
+
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0d1218, roughness: 0.95, metalness: 0 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMat);
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; scene.add(ground);
+const grid = new THREE.GridHelper(20000, 100, 0x1a2230, 0x11161e); scene.add(grid);
+
+const gBasemap = new THREE.Group(); scene.add(gBasemap);
+const gOSM = new THREE.Group(); scene.add(gOSM);
+const gParcels = new THREE.Group(); scene.add(gParcels);
+const gPCD = new THREE.Group(); scene.add(gPCD);
+const gProjects = new THREE.Group(); scene.add(gProjects);
+const gIFC = new THREE.Group(); scene.add(gIFC);
+const gPhotos = new THREE.Group(); scene.add(gPhotos);
+
+// ===================== OSM BASEMAP (tiles, alineado por esquinas lat/lon) =====================
+function lon2tile(lon, z) { return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function lat2tile(lat, z) { const r = lat * Math.PI / 180; return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z)); }
+function tile2lon(x, z) { return x / Math.pow(2, z) * 360 - 180; }
+function tile2lat(y, z) { const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); }
+function loadBasemap() {
+  gBasemap.clear();
+  const z = 17, span = 3;
+  const cx = lon2tile(state.centerLon, z), cy = lat2tile(state.centerLat, z);
+  const loader = new THREE.TextureLoader();
+  loader.crossOrigin = 'anonymous';
+  let done = 0, total = (2 * span + 1) ** 2;
+  showLoading('CARGANDO BASEMAP OSM...');
+  for (let dx = -span; dx <= span; dx++) {
+    for (let dy = -span; dy <= span; dy++) {
+      const tx = cx + dx, ty = cy + dy;
+      const lonL = tile2lon(tx, z), lonR = tile2lon(tx + 1, z);
+      const latT = tile2lat(ty, z), latB = tile2lat(ty + 1, z);
+      const a = latLonToLocal(latT, lonL), b = latLonToLocal(latB, lonR);
+      const w = Math.abs(b.x - a.x), d = Math.abs(b.z - a.z);
+      const cxp = (a.x + b.x) / 2, czp = (a.z + b.z) / 2;
+      const url = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+      loader.load(url, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.set(cxp, 0.05, czp);
+        gBasemap.add(plane);
+        if (++done >= total) hideLoading();
+      }, undefined, () => { if (++done >= total) hideLoading(); });
+    }
+  }
+  state.basemapLoaded = true;
+}
+
+// ===================== OSM BUILDINGS (Overpass) =====================
+async function loadOSMBuildings() {
+  showLoading('CONSULTANDO OPENSTREETMAP...');
+  const bbox = `${state.centerLat - 0.012},${state.centerLon - 0.015},${state.centerLat + 0.012},${state.centerLon + 0.015}`;
+  const query = `[out:json][timeout:25];(way[building](${bbox}););out geom;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) });
+    const data = await res.json();
+    showLoading(`PROCESANDO ${data.elements.length} EDIFICIOS...`);
+    gOSM.clear();
+    let bldCount = 0;
+    for (const el of data.elements) {
+      if (el.type !== 'way' || !el.geometry) continue;
+      const tags = el.tags || {};
+      if (!tags.building) continue;
+      const pts = el.geometry.map(p => latLonToLocal(p.lat, p.lon));
+      const shape = new THREE.Shape();
+      shape.moveTo(pts[0].x, -pts[0].z);
+      for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, -pts[i].z);
+      const levels = parseInt(tags['building:levels']) || 3;
+      const height = parseFloat(tags.height) || levels * 3;
+      try {
+        const geom = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+        geom.rotateX(-Math.PI / 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.85, metalness: 0.1, transparent: true, opacity: 0.82 });
+        gOSM.add(new THREE.Mesh(geom, mat));
+        gOSM.add(new THREE.LineSegments(new THREE.EdgesGeometry(geom), new THREE.LineBasicMaterial({ color: 0x3a4558, transparent: true, opacity: 0.3 })));
+        bldCount++;
+      } catch (e) { /* skip */ }
+    }
+    hideLoading();
+    toast(`${bldCount} edificaciones OSM cargadas`, 'ok');
+    updateObjCount();
+  } catch (e) {
+    hideLoading();
+    toast('Error OSM: ' + e.message, 'err');
+  }
+}
+
+// ===================== PARCELAS (adapter por ciudad) =====================
+function polyCentroid(ring) {
+  let x = 0, y = 0; const n = ring.length;
+  for (const [lon, lat] of ring) { x += lon; y += lat; }
+  return { lon: x / n, lat: y / n };
+}
+function ringToLocal(ring) { return ring.map(([lon, lat]) => latLonToLocal(lat, lon)); }
+
+function renderParcel(feature) {
+  const id = feature.id != null ? String(feature.id) : (CITY.parcelCode(feature.properties || {}) || JSON.stringify((feature.geometry.coordinates[0] || [])[0] || Math.random()));
+  if (state.parcels.has(id)) return;
+  const g = feature.geometry;
+  if (!g) return;
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : (g.type === 'Polygon' ? [g.coordinates] : []);
+  if (!polys.length) return;
+
+  const group = new THREE.Group();
+  const outerRing = polys[0][0];
+  const fillMat = new THREE.MeshStandardMaterial({ color: 0x3a6ea5, roughness: 0.9, metalness: 0, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x6fb3ff, transparent: true, opacity: 0.75 });
+
+  for (const poly of polys) {
+    const outer = ringToLocal(poly[0]);
+    const shape = new THREE.Shape();
+    shape.moveTo(outer[0].x, -outer[0].z);
+    for (let i = 1; i < outer.length; i++) shape.lineTo(outer[i].x, -outer[i].z);
+    for (let h = 1; h < poly.length; h++) {
+      const hole = ringToLocal(poly[h]);
+      const path = new THREE.Path();
+      path.moveTo(hole[0].x, -hole[0].z);
+      for (let i = 1; i < hole.length; i++) path.lineTo(hole[i].x, -hole[i].z);
+      shape.holes.push(path);
+    }
+    const geom = new THREE.ShapeGeometry(shape);
+    geom.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geom, fillMat);
+    mesh.position.y = 0.2;
+    mesh.userData = { type: 'parcel', id };
+    group.add(mesh);
+    const linePts = outer.map(p => new THREE.Vector3(p.x, 0.35, p.z));
+    linePts.push(linePts[0].clone());
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePts), lineMat));
+  }
+  gParcels.add(group);
+  const centroid = polyCentroid(outerRing);
+  state.parcels.set(id, { props: feature.properties || {}, group, fillMat, lineMat, centroid, ring: outerRing });
+  $('parcel-count').textContent = state.parcels.size;
+}
+
+async function loadParcelsByView() {
+  const c = localToLatLon(controls.target.x, controls.target.z);
+  const r = state.parcelRadius;
+  const dLat = r / R * 180 / Math.PI;
+  const dLon = r / (R * Math.cos(c.lat * Math.PI / 180)) * 180 / Math.PI;
+  showLoading('CONSULTANDO CATASTRO...');
+  try {
+    const feats = await CITY.loadByBBox(c.lon - dLon, c.lat - dLat, c.lon + dLon, c.lat + dLat);
+    gParcels.clear(); state.parcels.clear(); $('parcel-count').textContent = 0;
+    for (const f of feats) renderParcel(f);
+    hideLoading();
+    toast(`${feats.length} lotes cargados (radio ${r} m)`, feats.length ? 'ok' : '');
+    updateObjCount();
+  } catch (err) {
+    hideLoading();
+    toast('Error catastro: ' + err.message, 'err');
+  }
+}
+
+async function searchParcel() {
+  const raw = $('prd-search').value.trim();
+  if (!raw) { toast('Escribe un código o dirección', 'err'); return; }
+  showLoading('BUSCANDO LOTE...');
+  try {
+    const feats = await CITY.search(raw);
+    hideLoading();
+    if (!feats.length) { toast('Sin resultados para: ' + raw, 'err'); return; }
+    const f = feats[0];
+    recenterOn(f);
+    selectParcelByFeature(f);
+    toast(`${feats.length} lote(s) encontrado(s). Mostrando el primero.`, 'ok');
+    updateObjCount();
+  } catch (err) {
+    hideLoading();
+    toast('Error búsqueda: ' + err.message, 'err');
+  }
+}
+
+function recenterOn(feature) {
+  const outer = (feature.geometry.type === 'MultiPolygon' ? feature.geometry.coordinates[0][0] : feature.geometry.coordinates[0]);
+  const c = polyCentroid(outer);
+  state.centerLat = c.lat; state.centerLon = c.lon;
+  $('hud-center').textContent = `${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}°`;
+  gParcels.clear(); state.parcels.clear(); $('parcel-count').textContent = 0;
+  renderParcel(feature);
+  rebuildProjects();
+  rebuildPhotos();
+  if (state.basemapLoaded) loadBasemap();
+  controls.target.set(0, 0, 0);
+  camera.position.set(350, 320, 350);
+}
+
+function selectParcelByFeature(f) {
+  const id = [...state.parcels.keys()].pop();
+  if (id != null) selectParcelById(id);
+}
+
+function selectParcelById(id) {
+  for (const [pid, p] of state.parcels) {
+    const sel = pid === id;
+    p.fillMat.color.set(sel ? 0xff5252 : 0x3a6ea5);
+    p.fillMat.opacity = sel ? 0.5 : 0.35;
+    p.lineMat.color.set(sel ? 0xff7b7b : 0x6fb3ff);
+  }
+  const p = state.parcels.get(id);
+  if (!p) return;
+  const areaM2 = ringAreaM2(p.ring);
+  state.selectedParcel = { props: p.props, centroid: p.centroid, ring: p.ring, areaM2, norm: {} };
+  showPredioInfo(p.props, p.centroid, areaM2);
+}
+
+function showPredioInfo(props, centroid, areaM2) {
+  const el = $('predio-info');
+  const rows = CITY.parcelRows(props).map(([k, v]) => `<span class="k">${esc(k)}</span><span class="val">${esc(v)}</span>`).join('');
+  el.innerHTML = `
+    <div class="predio">
+      <div class="npn">${esc(CITY.parcelCode(props) || '—')}</div>
+      <div class="kv">
+        ${rows}
+        <span class="k">Área (geom)</span><span class="val">${m2fmt(areaM2)}</span>
+        <span class="k">Lat/Lon</span><span class="val">${centroid.lat.toFixed(6)}, ${centroid.lon.toFixed(6)}</span>
+      </div>
+      <div>${CITY.links(props, centroid)}</div>
+      <div id="pot-box"><div class="hint">Consultando normativa…</div></div>
+      <div class="actions">
+        <button class="btn primary" id="btn-save-predio"><span class="ic">★</span> Guardar</button>
+        <button class="btn" id="btn-fly-predio"><span class="ic">◎</span> Centrar</button>
+      </div>
+      <button class="btn cyan" id="btn-masas"><span class="ic">◱</span> Diseñar masas (Revit) →</button>
+    </div>`;
+  $('btn-save-predio').onclick = () => savePredioAsProperty(props, centroid, areaM2);
+  $('btn-fly-predio').onclick = () => {
+    const l = latLonToLocal(centroid.lat, centroid.lon);
+    controls.target.set(l.x, 0, l.z);
+    camera.position.set(l.x + 250, 220, l.z + 250);
+  };
+  $('btn-masas').onclick = () => openMassing(props, centroid, areaM2);
+  fetchNorm(centroid, areaM2);
+}
+
+async function fetchNorm(centroid, areaM2) {
+  const box = $('pot-box'); if (!box) return;
+  box.innerHTML = '<div class="hint">Consultando normativa (índices y volumetría)…</div>';
+  try {
+    const r = await CITY.fetchNorm(centroid, areaM2);
+    box.innerHTML = r.html;
+    if (state.selectedParcel) state.selectedParcel.norm = r.norm || {};
+    if (r.wire) r.wire(state);
+  } catch (e) {
+    box.innerHTML = '<div class="hint">No se pudo consultar la normativa: ' + esc(e.message) + '</div>';
+  }
+}
+
+// ===================== ESTUDIOS DE MASAS =====================
+const STUDIES_KEY = 'cali_massing_studies'; // compartido con masas.html
+function readStudies() { try { return JSON.parse(localStorage.getItem(STUDIES_KEY) || '{}'); } catch (e) { return {}; } }
+function renderStudies() {
+  const list = $('study-list'); const studies = readStudies(); const keys = Object.keys(studies);
+  if (!keys.length) { list.innerHTML = '<div class="empty">Sin estudios. Crea uno en "Diseñar masas" y guárdalo.</div>'; return; }
+  list.innerHTML = '';
+  for (const k of keys) {
+    const s = studies[k]; const p = s.predio || {}; const r = s.resumen || {};
+    const card = document.createElement('div');
+    card.className = 'project-card'; card.style.borderLeftColor = '#9c6bff';
+    card.innerHTML = `
+      <span class="del" title="Eliminar">✕</span>
+      <div class="name">${esc(p.direpred || p.npn || k)}</div>
+      <div class="meta"><span>${(s.masses || []).length} masas</span> · <span>${(s.levels || []).length} niveles</span> · <span>${(s.walls || []).length} muros</span></div>
+      <div class="coords">Área constr. ${r.area_construida ? r.area_construida.toLocaleString() : '—'} m² · índice ${r.indice != null ? r.indice : '—'} · ${s.savedAt ? new Date(s.savedAt).toLocaleDateString('es-CO') : ''}</div>
+      <div class="badges"><span class="badge on" style="color:#9c6bff;border-color:#9c6bff">◱ ABRIR ESTUDIO</span></div>`;
+    card.querySelector('.del').onclick = (e) => { e.stopPropagation(); const all = readStudies(); delete all[k]; localStorage.setItem(STUDIES_KEY, JSON.stringify(all)); renderStudies(); toast('Estudio eliminado', ''); };
+    card.onclick = () => openStudy(k);
+    list.appendChild(card);
+  }
+}
+function openStudy(k) {
+  const s = readStudies()[k]; if (!s || !s.predio) { toast('Estudio sin geometría de predio', 'err'); return; }
+  const payload = Object.assign({}, s.predio, { study: { levels: s.levels, walls: s.walls, masses: s.masses } });
+  try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
+  window.open('masas.html', '_blank');
+}
+
+function openMassing(props, centroid, areaM2) {
+  const sp = state.selectedParcel || {};
+  const norm = sp.norm || {};
+  const payload = {
+    city: CITY.hud,
+    npn: CITY.parcelCode(props) || '',
+    direpred: (CITY.parcelRows(props).find(r => /direcc/i.test(r[0])) || [null, ''])[1] || CITY.parcelCode(props) || '',
+    nom_barrio: '', comuna: '',
+    area: Math.round(areaM2 || 0),
+    icb: norm.indice != null ? norm.indice : null,     // índice/FAR → mismo campo que Cali
+    ica: null,
+    pisosMax: norm.pisosMax != null ? norm.pisosMax : null,
+    zoning: norm.zoning || norm.tratamiento || null,
+    centroid, ring: sp.ring || null,
+  };
+  try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
+  window.open('masas.html', '_blank');
+}
+
+// ===================== PROPIEDADES =====================
+function savePredioAsProperty(props, centroid, areaM2) {
+  const code = CITY.parcelCode(props);
+  const exists = state.projects.find(p => p.npn && p.npn === code);
+  if (exists) { toast('Esa propiedad ya está guardada', ''); selectProject(exists.id); return; }
+  const addr = (CITY.parcelRows(props).find(r => /direcc/i.test(r[0])) || [null, null])[1];
+  const prj = {
+    id: 'pr_' + (code || Date.now()),
+    name: addr || code || 'Lote',
+    npn: code || '',
+    lat: centroid.lat, lon: centroid.lon,
+    area: Math.round(areaM2 || 0),
+    norm: state.selectedParcel ? state.selectedParcel.norm : {},
+    h: 30, stage: 'Diseño', saved: true, ifc: false, pcd: false,
+    ring: state.selectedParcel ? state.selectedParcel.ring : null,
+  };
+  addProject(prj);
+  persistProperties();
+  toast('Propiedad guardada: ' + prj.name, 'ok');
+}
+function persistProperties() {
+  const data = state.projects.filter(p => p.saved).map(p => ({
+    id: p.id, name: p.name, npn: p.npn, lat: p.lat, lon: p.lon,
+    area: p.area, h: p.h, stage: p.stage, ring: p.ring, norm: p.norm,
+  }));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+function loadPersistedProperties() {
+  let data = [];
+  try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) {}
+  for (const d of data) { d.saved = true; d.ifc = false; d.pcd = false; addProject(d); }
+  if (data.length) toast(`${data.length} propiedad(es) restaurada(s)`, '');
+}
+
+function addProject(prj) {
+  const local = latLonToLocal(prj.lat, prj.lon);
+  prj.x = local.x; prj.z = local.z; prj.y = (prj.h || 40);
+  prj.id = prj.id || ('p' + Date.now() + Math.floor(Math.random() * 1000));
+  const isFocal = state.focalId === prj.id;
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(isFocal ? 18 : 13, 24, 24),
+    new THREE.MeshStandardMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, emissive: isFocal ? 0xff2020 : 0xc88820, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.6 })
+  );
+  sphere.position.set(prj.x, prj.y, prj.z);
+  sphere.userData = { type: 'project', id: prj.id };
+  gProjects.add(sphere);
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(prj.x, 0, prj.z), new THREE.Vector3(prj.x, prj.y, prj.z)]),
+    new THREE.LineBasicMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, transparent: true, opacity: 0.5 })
+  );
+  gProjects.add(line);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(6, 9, 28), new THREE.MeshBasicMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(prj.x, 0.4, prj.z);
+  gProjects.add(ring);
+  prj.sphere = sphere;
+  state.projects.push(prj);
+  if (!state.focalId) state.focalId = prj.id;
+  refreshProjectList(); refreshMetrics(); updateObjCount();
+}
+function rebuildProjects() {
+  gProjects.clear();
+  const old = state.projects.map(p => { const c = { ...p }; delete c.sphere; delete c.x; delete c.z; delete c.y; return c; });
+  state.projects = [];
+  for (const p of old) addProject(p);
+}
+function selectProject(id) {
+  state.selectedId = id; state.focalId = id;
+  rebuildProjects(); refreshProjectList();
+  const p = state.projects.find(x => x.id === id);
+  if (p) flyTo(p);
+}
+function deleteProject(id) {
+  const p = state.projects.find(x => x.id === id);
+  state.projects = state.projects.filter(x => x.id !== id);
+  if (state.focalId === id) state.focalId = state.projects[0] ? state.projects[0].id : null;
+  if (state.selectedId === id) state.selectedId = null;
+  rebuildProjects(); refreshProjectList(); refreshMetrics();
+  if (p && p.saved) persistProperties();
+}
+function refreshProjectList() {
+  const list = $('prj-list');
+  if (state.projects.length === 0) { list.innerHTML = '<div class="empty">Sin propiedades. Busca un lote y guárdalo.</div>'; return; }
+  list.innerHTML = '';
+  for (const p of state.projects) {
+    const card = document.createElement('div');
+    card.className = 'project-card' + (p.id === state.focalId ? ' focal' : '') + (p.id === state.selectedId ? ' selected' : '');
+    card.innerHTML = `
+      <span class="del" title="Eliminar">✕</span>
+      <div class="name">${esc(p.name)}</div>
+      <div class="meta"><span>${p.area || '-'} m²</span> · <span>${p.stage || '-'}</span></div>
+      ${p.npn ? `<div class="coords">${esc(p.npn)}</div>` : ''}
+      <div class="coords">${p.lat.toFixed(5)}°, ${p.lon.toFixed(5)}°</div>
+      <div class="badges">
+        <span class="badge ${p.saved ? 'on' : ''}">${p.saved ? '★ GUARDADA' : 'TEMP'}</span>
+        <span class="badge ${p.ifc ? 'on' : ''}">IFC</span>
+        <span class="badge ${p.pcd ? 'on' : ''}">NUBE</span>
+      </div>`;
+    card.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteProject(p.id); };
+    card.onclick = () => selectProject(p.id);
+    list.appendChild(card);
+  }
+}
+function refreshMetrics() {
+  $('m-prj').textContent = state.projects.length;
+  let area = 0;
+  for (const p of state.projects) area += (p.area || 0);
+  $('m-area').textContent = area.toLocaleString();
+  $('m-ifc').textContent = state.ifcCount;
+  $('m-pcd').textContent = state.pcdCount;
+}
+function flyTo(p) {
+  const target = new THREE.Vector3(p.x, p.y, p.z);
+  controls.target.copy(target);
+  const dir = new THREE.Vector3(1, 0.7, 1).normalize();
+  camera.position.copy(target.clone().add(dir.multiplyScalar(350)));
+}
+
+// ===================== IFC LOADER =====================
+let IFCLoaderInstance = null;
+async function ensureIFCLoader() {
+  if (IFCLoaderInstance) return IFCLoaderInstance;
+  try {
+    const mod = await import('https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.125/IFCLoader.js');
+    IFCLoaderInstance = new mod.IFCLoader();
+    await IFCLoaderInstance.ifcManager.setWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.50/');
+    return IFCLoaderInstance;
+  } catch (e) { console.warn('IFCLoader no disponible:', e); return null; }
+}
+function requireSelected() {
+  const p = state.projects.find(x => x.id === state.selectedId);
+  if (!p) { toast('Selecciona primero una propiedad en el panel derecho', 'err'); return null; }
+  return p;
+}
+async function loadIFC(file) {
+  const prj = requireSelected();
+  if (!prj) return;
+  showLoading('CARGANDO IFC...');
+  const loader = await ensureIFCLoader();
+  if (!loader) { hideLoading(); toast('Motor IFC no disponible', 'err'); return; }
+  const url = URL.createObjectURL(file);
+  loader.load(url, (model) => {
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    model.position.sub(center);
+    model.position.x += prj.x; model.position.z += prj.z; model.position.y += size.y / 2;
+    model.userData.ownerId = prj.id;
+    gIFC.add(model);
+    state.ifcCount++; prj.ifc = true;
+    hideLoading(); refreshMetrics(); refreshProjectList(); updateObjCount();
+    toast('IFC anclado a: ' + prj.name, 'ok');
+    URL.revokeObjectURL(url);
+  }, (xhr) => { if (xhr.total) showLoading(`IFC: ${Math.round(xhr.loaded / xhr.total * 100)}%`); },
+     (err) => { hideLoading(); console.error(err); toast('Error IFC: ' + (err.message || err), 'err'); });
+}
+
+// ===================== NUBE DE PUNTOS =====================
+function loadPointCloud(file) {
+  const prj = requireSelected();
+  if (!prj) return;
+  showLoading('PROCESANDO NUBE DE PUNTOS...');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const rows = text.split(/\r?\n/);
+    const pts = []; let hasRGB = false;
+    for (const line of rows) {
+      const nums = line.trim().split(/[\s,;]+/).map(Number);
+      if (nums.length >= 3 && nums.slice(0, 3).every(n => !isNaN(n))) {
+        const rec = { x: nums[0], y: nums[1], z: nums[2] };
+        if (nums.length >= 6 && nums.slice(3, 6).every(n => !isNaN(n))) { rec.r = nums[3]; rec.g = nums[4]; rec.b = nums[5]; hasRGB = true; }
+        pts.push(rec);
+      }
+    }
+    if (!pts.length) { hideLoading(); toast('No se hallaron puntos (X Y Z por línea)', 'err'); return; }
+    let cx = 0, cy = 0, cz = 0, minZ = Infinity, maxZ = -Infinity;
+    for (const p of pts) { cx += p.x; cy += p.y; cz += p.z; if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z; }
+    cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    const range = (maxZ - minZ) || 1;
+    const positions = [], colors = [];
+    const cmax = hasRGB ? (pts.some(p => p.r > 1) ? 255 : 1) : 1;
+    for (const p of pts) {
+      positions.push((p.x - cx) + prj.x, (p.z - cz), -((p.y - cy)) + prj.z);
+      if (hasRGB) colors.push(p.r / cmax, p.g / cmax, p.b / cmax);
+      else { const t = (p.z - minZ) / range; colors.push(0.35 + t * 0.4, 0.7 + t * 0.2, 0.4 + t * 0.1); }
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const cloud = new THREE.Points(geom, new THREE.PointsMaterial({ size: 2, vertexColors: true, sizeAttenuation: true }));
+    cloud.userData.ownerId = prj.id;
+    gPCD.add(cloud);
+    state.pcdCount++; prj.pcd = true;
+    hideLoading(); refreshMetrics(); refreshProjectList(); updateObjCount();
+    toast(`${pts.length.toLocaleString()} puntos anclados a: ${prj.name}`, 'ok');
+  };
+  reader.readAsText(file);
+}
+
+// ===================== FOTOS: WhatsApp (Cowork) + n8n =====================
+const photoTexLoader = new THREE.TextureLoader(); photoTexLoader.crossOrigin = 'anonymous';
+const WA_FILE_DEFAULT = 'fotos/fotos_whatsapp.json';
+// URL configurable: archivo del repo, bucket S3 de OpenClaw, o cualquier JSON por HTTP
+function waUrl() { return ($('wa-url') && $('wa-url').value.trim()) || WA_FILE_DEFAULT; }
+
+function normalizePhoto(p, i) {
+  const lat = +(p.lat ?? p.latitude ?? (p.location && p.location.latitude));
+  const lon = +(p.lon ?? p.lng ?? p.longitude ?? (p.location && p.location.longitude));
+  const url = p.url || p.photo_url || p.photoUrl || p.image || p.file_url || p.data || '';
+  return { id: String(p.id ?? p.message_id ?? (url.slice(0, 60) + i)), lat, lon, url, caption: p.caption || p.text || '', date: p.date || '', city: p.city || '' };
+}
+function addPhotoMarker(photo) {
+  if (!isFinite(photo.lat) || !isFinite(photo.lon) || !photo.url) return;
+  if (state.photos.find(x => x.id === photo.id)) return;
+  state.photos.push(photo);
+  const l = latLonToLocal(photo.lat, photo.lon);
+  const pole = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(l.x, 0, l.z), new THREE.Vector3(l.x, 60, l.z)]),
+    new THREE.LineBasicMaterial({ color: 0x25d366, transparent: true, opacity: 0.6 }));
+  pole.userData = { photoId: photo.id };
+  gPhotos.add(pole);
+  const mat = new THREE.SpriteMaterial({ color: 0xffffff });
+  const sprite = new THREE.Sprite(mat);
+  sprite.position.set(l.x, 78, l.z);
+  sprite.scale.set(46, 46, 1);
+  sprite.userData = { type: 'photo', id: photo.id, photo };
+  gPhotos.add(sprite);
+  photoTexLoader.load(photo.url, (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace; mat.map = tex; mat.needsUpdate = true;
+    const a = (tex.image && tex.image.width && tex.image.height) ? tex.image.width / tex.image.height : 1;
+    sprite.scale.set(46 * Math.max(a, 0.6), 46, 1);
+  });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4, 6, 24), new THREE.MeshBasicMaterial({ color: 0x25d366, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(l.x, 0.3, l.z); ring.userData = { photoId: photo.id };
+  gPhotos.add(ring);
+  updateObjCount();
+}
+function rebuildPhotos() {
+  gPhotos.clear();
+  const all = state.photos.slice(); state.photos = [];
+  for (const p of all) addPhotoMarker(p);
+}
+function ingestPhotos(list) {
+  if (!Array.isArray(list)) { if (list && Array.isArray(list.photos)) list = list.photos; else return 0; }
+  let added = 0;
+  list.forEach((p, i) => { const n = normalizePhoto(p, i); const before = state.photos.length; addPhotoMarker(n); if (state.photos.length > before) added++; });
+  $('photo-count').textContent = state.photos.length;
+  return added;
+}
+async function loadWhatsAppFile(silent) {
+  const src = waUrl();
+  try {
+    const sep = src.includes('?') ? '&' : '?';
+    const res = await fetch(src + sep + 't=' + Date.now(), { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const added = ingestPhotos(data);
+    if (added) toast(`${added} foto(s) de WhatsApp añadidas (${src.startsWith('http') ? 'OpenClaw/S3' : 'repo'})`, 'ok');
+    else if (!silent) toast('Sin fotos nuevas en ' + src, '');
+  } catch (e) {
+    if (!silent) toast('No se pudo leer ' + src + ' (' + e.message + '). Revisa CORS o sirve la carpeta por HTTP.', 'err');
+  }
+}
+async function pollPhotos(url) {
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    const added = ingestPhotos(data);
+    if (added) toast(`${added} foto(s) nuevas ubicadas en el mapa`, 'ok');
+  } catch (e) { toast('Error consultando endpoint de fotos: ' + e.message, 'err'); }
+}
+function startPhotoPolling() {
+  const url = $('tg-endpoint').value.trim();
+  if (!url) { toast('Pega la URL del webhook n8n (GET) que devuelve las fotos', 'err'); return; }
+  localStorage.setItem('lc_foto_endpoint', url);
+  stopPhotoPolling();
+  pollPhotos(url);
+  state.photoTimer = setInterval(() => pollPhotos(url), 15000);
+  $('btn-tg-connect').innerHTML = '<span class="ic">■</span> Desconectar (sondeando…)';
+  $('btn-tg-connect').classList.add('primary');
+  toast('Conectado a n8n. Envía una foto + ubicación al bot.', '');
+}
+function stopPhotoPolling() {
+  if (state.photoTimer) { clearInterval(state.photoTimer); state.photoTimer = null; }
+  $('btn-tg-connect').innerHTML = '<span class="ic">◉</span> Conectar y sondear fotos';
+  $('btn-tg-connect').classList.remove('primary');
+}
+function focusPhotos() {
+  if (!state.photos.length) { toast('Aún no hay fotos', ''); return; }
+  const p = state.photos[state.photos.length - 1];
+  const l = latLonToLocal(p.lat, p.lon);
+  controls.target.set(l.x, 40, l.z); camera.position.set(l.x + 180, 150, l.z + 180);
+}
+// API global para OpenClaw / consola / puentes n8n
+window.CityViewer = {
+  addPhoto: (p) => { ingestPhotos([p]); }, ingestPhotos, loadWhatsAppFile, city: CITY_ID,
+  selectParcel: (id) => selectParcelById(id),
+  parcels: () => [...state.parcels.keys()],
+};
+
+// ===================== RAYCASTER =====================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+function setMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+}
+canvas.addEventListener('click', (e) => {
+  setMouse(e); raycaster.setFromCamera(mouse, camera);
+  const ph = raycaster.intersectObjects(gProjects.children, false);
+  for (const hit of ph) if (hit.object.userData.type === 'project') { selectProject(hit.object.userData.id); return; }
+  const photoHits = raycaster.intersectObjects(gPhotos.children, false);
+  for (const hit of photoHits) if (hit.object.userData.type === 'photo') { const p = hit.object.userData.photo; toast(`📷 ${p.caption || 'Foto'} · ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`, ''); if (!/^data:/.test(p.url)) window.open(p.url, '_blank'); return; }
+  const parcelMeshes = [];
+  gParcels.traverse(o => { if (o.userData && o.userData.type === 'parcel') parcelMeshes.push(o); });
+  const hits = raycaster.intersectObjects(parcelMeshes, false);
+  if (hits.length) selectParcelById(hits[0].object.userData.id);
+});
+canvas.addEventListener('mousemove', (e) => {
+  setMouse(e); raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(ground);
+  if (hits.length) {
+    const ll = localToLatLon(hits[0].point.x, hits[0].point.z);
+    $('cursor-coords').innerHTML = `<span class="lbl">LAT/LON</span><span class="v">${ll.lat.toFixed(6)}, ${ll.lon.toFixed(6)}</span>`;
+  }
+});
+
+// ===================== EVENTS =====================
+$('btn-osm').onclick = loadOSMBuildings;
+$('btn-load-view').onclick = loadParcelsByView;
+$('btn-search').onclick = searchParcel;
+$('prd-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchParcel(); });
+$('prd-radius').oninput = (e) => { state.parcelRadius = +e.target.value; $('prd-radius-v').textContent = e.target.value + ' m'; };
+$('tg-parcels').onchange = (e) => gParcels.visible = e.target.checked;
+$('tg-grid').onchange = (e) => grid.visible = e.target.checked;
+$('tg-buildings').onchange = (e) => gOSM.visible = e.target.checked;
+$('tg-basemap').onchange = (e) => { gBasemap.visible = e.target.checked; if (e.target.checked && !state.basemapLoaded) loadBasemap(); };
+$('file-ifc').onchange = (e) => { if (e.target.files[0]) loadIFC(e.target.files[0]); e.target.value = ''; };
+$('file-pcd').onchange = (e) => { if (e.target.files[0]) loadPointCloud(e.target.files[0]); e.target.value = ''; };
+$('btn-tg-connect').onclick = () => { state.photoTimer ? stopPhotoPolling() : startPhotoPolling(); };
+$('btn-photos-focus').onclick = focusPhotos;
+$('tg-photos').onchange = (e) => gPhotos.visible = e.target.checked;
+$('btn-wa-file').onclick = () => loadWhatsAppFile(false);
+$('wa-poll').onchange = (e) => {
+  if (e.target.checked) { loadWhatsAppFile(true); state.waTimer = setInterval(() => loadWhatsAppFile(true), 20000); toast('Vigilando ' + WA_FILE + ' cada 20 s', ''); }
+  else if (state.waTimer) { clearInterval(state.waTimer); state.waTimer = null; }
+};
+$('file-photos').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { const n = ingestPhotos(JSON.parse(r.result)); toast(`${n} foto(s) importada(s)`, 'ok'); } catch (err) { toast('JSON inválido: ' + err.message, 'err'); } };
+  r.readAsText(f); e.target.value = '';
+};
+$('btn-clear-saved').onclick = () => {
+  if (!confirm('¿Eliminar todas las propiedades guardadas de esta ciudad en este navegador?')) return;
+  state.projects = state.projects.filter(p => !p.saved);
+  localStorage.removeItem(STORAGE_KEY);
+  rebuildProjects(); refreshProjectList(); refreshMetrics();
+  toast('Propiedades guardadas eliminadas', '');
+};
+$('btn-top').onclick = () => { camera.position.set(0, 2500, 0.1); controls.target.set(0, 0, 0); };
+$('btn-iso').onclick = () => { camera.position.set(1200, 1100, 1200); controls.target.set(0, 0, 0); };
+$('btn-reset').onclick = () => { camera.position.set(1200, 1100, 1200); controls.target.set(0, 0, 0); };
+
+// ===================== ANIMATE =====================
+let lastT = performance.now(), frames = 0, fpsT = 0;
+function updateObjCount() {
+  let count = 0;
+  scene.traverse(o => { if (o.isMesh || o.isPoints || o.isLine) count++; });
+  $('obj-count').textContent = count;
+}
+function animate(t) {
+  requestAnimationFrame(animate);
+  const dt = t - lastT; lastT = t; frames++; fpsT += dt;
+  if (fpsT > 500) { $('fps').textContent = Math.round(1000 * frames / fpsT); frames = 0; fpsT = 0; }
+  const focal = state.projects.find(p => p.id === state.focalId);
+  if (focal && focal.sphere) { const s = 1 + Math.sin(t * 0.003) * 0.1; focal.sphere.scale.set(s, s, s); }
+  controls.update();
+  renderer.render(scene, camera);
+}
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize(); animate(0);
+
+// ===================== INIT (por ciudad) =====================
+document.querySelectorAll('#tabs .tab').forEach(a => { if (a.dataset.city === CITY_ID) a.classList.add('on'); });
+$('city-name').textContent = CITY.name;
+$('city-tag').textContent = CITY.tag;
+$('hud-city').textContent = CITY.hud;
+$('hud-attrib').textContent = CITY.attrib;
+$('parcels-title').textContent = CITY.parcelsTitle;
+$('search-label').textContent = CITY.searchLabel;
+$('prd-search').placeholder = CITY.searchPlaceholder;
+$('source-hint').innerHTML = CITY.sourceHint;
+$('hud-center').textContent = `${state.centerLat.toFixed(5)}°, ${state.centerLon.toFixed(5)}°`;
+document.title = 'LifeCity · ' + CITY.name;
+if (CITY.configHtml) { $('city-config').innerHTML = CITY.configHtml; if (CITY.initConfig) CITY.initConfig(); }
+const savedEndpoint = localStorage.getItem('lc_foto_endpoint');
+if (savedEndpoint) $('tg-endpoint').value = savedEndpoint;
+const savedWaUrl = localStorage.getItem('lc_wa_url');
+if (savedWaUrl) $('wa-url').value = savedWaUrl;
+$('wa-url').onchange = () => localStorage.setItem('lc_wa_url', $('wa-url').value.trim());
+if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCityAuth.name(); $('btn-logout').onclick = () => window.LifeCityAuth.logout(); }
+loadPersistedProperties();
+renderStudies();
+window.addEventListener('focus', renderStudies);
+loadWhatsAppFile(true); // intenta cargar fotos del repo silenciosamente
+</script>
+</body>
+</html>
