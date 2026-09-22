@@ -505,8 +505,24 @@ async function ubicar(lat, lon, saltarVista) {
   try {
     const lote = await BOG.loteEnPunto(lat, lon);
     if (!lote) { $('s1tag').textContent = 'Catastro IDECA'; toast('No hay lote catastral en ese punto. Prueba unos metros más adentro.', true); return; }
+    await usarLote(lote);
+  } catch (err) {
+    $('s1tag').textContent = 'Catastro IDECA';
+    toast('Error consultando: ' + err.message, true);
+  }
+}
+
+/** Con el lote ya en la mano: lo dibuja, lee su norma y arma la masa. */
+async function usarLote(lote, lat, lon) {
+  if (lat != null && lon != null) {
+    E.punto = { lat, lon };
+    if (marcador) marcador.remove();
+    marcador = L.marker([lat, lon]).addTo(map);
+  }
+  try {
     E.lote = lote;
     dibujarLote(lote);
+    map.setView([lote.centroide.lat, lote.centroide.lon], Math.max(map.getZoom(), 17));
     $('s1tag').innerHTML = '<span class="spin"></span>consultando el POT…';
     const norma = await BOG.normativaEnPunto(lote.centroide.lat, lote.centroide.lon);
     E.norma = norma;
@@ -517,7 +533,7 @@ async function ubicar(lat, lon, saltarVista) {
     $('s1tag').textContent = 'Catastro IDECA';
   } catch (err) {
     $('s1tag').textContent = 'Catastro IDECA';
-    toast('Error consultando: ' + err.message, true);
+    toast('Error consultando el POT: ' + err.message, true);
   }
 }
 
@@ -540,8 +556,20 @@ async function buscar() {
   $('btnBuscar').disabled = true;
   try {
     const r = await BOG.buscarDireccion(q);
-    if (!r.length) { toast('Sin resultados en Bogotá para: ' + q, true); return; }
-    await ubicar(r[0].lat, r[0].lon);
+    if (!r.length) {
+      toast('Sin resultados para: ' + q + '. Prueba "Calle 67 # 7-67" o toca el lote en el mapa.', true);
+      return;
+    }
+    const d = r[0];
+    // La placa domiciliaria ya dice a qué lote pertenece: más exacto que buscar por punto.
+    if (d.codigoLote) {
+      try {
+        const lote = await BOG.lotePorCodigo(d.codigoLote);
+        if (lote) { await usarLote(lote, d.lat, d.lon); toast(d.nombre); return; }
+      } catch (e) { /* si falla, se ubica por el punto */ }
+    }
+    await ubicar(d.lat, d.lon);
+    if (d.nombre) toast(d.nombre);
   } catch (e) { toast(e.message, true); }
   finally { $('btnBuscar').disabled = false; }
 }

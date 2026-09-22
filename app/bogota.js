@@ -222,6 +222,87 @@ export function parametrosIniciales(norma, areaLote) {
 
 /* ============================ 4) DIRECCIONES ============================ */
 
+/* Nomenclatura de Bogotá: la placa domiciliaria del catastro guarda la vía en
+   PDONVIAL ("KR 8", "CL 67") y el número en PDOTEXTO ("66 98" = # 66-98).      */
+const PLACAS = 'https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/catastro/placadomiciliaria/MapServer/0';
+const TIPOS_VIA = [
+  ['AVENIDA CARRERA', 'AK'], ['AVENIDA CALLE', 'AC'], ['AV CARRERA', 'AK'], ['AV CALLE', 'AC'],
+  ['TRANSVERSAL', 'TV'], ['DIAGONAL', 'DG'], ['CARRERA', 'KR'], ['AVENIDA', 'AV'], ['CALLE', 'CL'],
+  ['KRA', 'KR'], ['CRA', 'KR'], ['CR', 'KR'], ['KR', 'KR'], ['AK', 'AK'], ['AC', 'AC'],
+  ['TV', 'TV'], ['DG', 'DG'], ['CL', 'CL'], ['AV', 'AV'], ['CQ', 'CQ'],
+];
+
+/** Lee el tipo y el número de la vía: "CALLE 67 …" → { via:'CL 67', resto:'…' } */
+function leerVia(s) {
+  let tipo = null;
+  for (const [nombre, cod] of TIPOS_VIA) {
+    if (s.startsWith(nombre + ' ')) { tipo = cod; s = s.slice(nombre.length + 1); break; }
+  }
+  if (!tipo) return null;
+  // Número, con letra suelta opcional (7A) y sufijos BIS / SUR / ESTE.
+  // La letra solo cuenta si termina ahí: así "8 No 66-98" no se lee como "8N".
+  const m = s.match(/^(\d+)\s*([A-Z](?=\s|$|#|-))?(\s+BIS)?(\s+(?:SUR|ESTE))?\s*(.*)$/);
+  if (!m) return null;
+  const via = tipo + ' ' + m[1] + (m[2] || '') + (m[3] ? ' BIS' : '') + (m[4] || '');
+  return { via: via.replace(/\s+/g, ' ').trim(), resto: (m[5] || '').trim() };
+}
+
+/** "Calle 67 # 7-67" → { via:'CL 67', placa:'7 67' }
+    "Carrera 7 con Calle 72" → { via:'KR 7', placa:'72' }  (así es la nomenclatura) */
+export function parsearDireccion(texto) {
+  let s = String(texto || '').toUpperCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Unifica el marcador de número: No. / N° / Nro / Número → #
+  s = s.replace(/\b(?:N[O°]?|NRO|NUM(?:ERO)?)\s*\.?\s*(?=\d|#)/g, '# ');
+
+  // Cruce de vías: en Bogotá "KR 7 con CL 72" es la placa "KR 7 # 72-xx"
+  let cruce = null;
+  const mc = s.match(/^(.*?)\s+(?:CON|ESQUINA(?:\s+CON)?|X)\s+(.*)$/);
+  if (mc) { s = mc[1].trim(); cruce = mc[2].trim(); }
+
+  const v = leerVia(s);
+  if (!v) return null;
+
+  if (cruce) {
+    const c = leerVia(cruce);
+    const num = c ? c.via.split(' ').slice(1).join(' ') : (cruce.match(/\d+[A-Z]?/) || [null])[0];
+    return { via: v.via, placa: num || null, esCruce: true };
+  }
+  const p = v.resto.replace(/^#\s*/, '').match(/^(\d+\s*[A-Z]?)\s*[-\s]\s*(\d+)/);
+  return { via: v.via, placa: p ? `${p[1].replace(/\s+/g, '')} ${p[2]}` : null, esCruce: false };
+}
+
+/** Busca la dirección en la placa domiciliaria oficial del catastro. */
+async function buscarPlaca(texto) {
+  const d = parsearDireccion(texto);
+  if (!d) return [];
+  const esc = (s) => s.replace(/'/g, "''");
+  const via = esc(d.via);
+
+  const consultar = async (where, max) => {
+    const url = PLACAS + '/query?' + new URLSearchParams({
+      where, outFields: 'PDOTEXTO,PDONVIAL,PDOCLOTE', returnGeometry: 'true',
+      outSR: '4326', f: 'json', resultRecordCount: String(max),
+    });
+    const r = await json(url);
+    if (r.error) return [];
+    return (r.features || []).filter(f => f.geometry).map(f => ({
+      nombre: `${f.attributes.PDONVIAL} # ${String(f.attributes.PDOTEXTO || '').trim().replace(' ', '-')}`,
+      lat: f.geometry.y, lon: f.geometry.x, codigoLote: f.attributes.PDOCLOTE,
+    }));
+  };
+
+  if (!d.placa) return consultar(`PDONVIAL='${via}'`, 1);
+
+  // 1) La placa exacta. En un cruce solo se conoce su primer número ("72 …").
+  const patron = d.esCruce ? `${esc(d.placa)} %` : `${esc(d.placa)}%`;
+  const exacta = await consultar(`PDONVIAL='${via}' AND PDOTEXTO LIKE '${patron}'`, 8);
+  if (exacta.length) return exacta;
+
+  // 2) Si esa placa no existe, al menos la misma cuadra (mismo primer número).
+  const cuadra = esc(String(d.placa).split(' ')[0]);
+  return consultar(`PDONVIAL='${via}' AND PDOTEXTO LIKE '${cuadra} %'`, 4);
+}
+
 export async function buscarDireccion(texto) {
   const q = String(texto || '').trim();
   if (!q) throw new Error('Escribe una dirección');
@@ -237,13 +318,22 @@ export async function buscarDireccion(texto) {
     return [];
   }
 
-  const url = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
-    q: q + ', Bogotá, Colombia', format: 'json', limit: '6', countrycodes: 'co',
-  });
-  const d = await json(url);
-  return (Array.isArray(d) ? d : [])
-    .map(r => ({ nombre: r.display_name, lat: +r.lat, lon: +r.lon }))
-    .filter(r => enBogota(r.lat, r.lon));
+  // Dirección con nomenclatura de Bogotá: la fuente oficial primero.
+  try {
+    const placas = await buscarPlaca(q);
+    if (placas.length) return placas;
+  } catch (e) { /* si el servicio falla, se intenta con OSM */ }
+
+  // Respaldo: OpenStreetMap (útil para nombres propios, no para nomenclatura).
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
+      q: q + ', Bogotá, Colombia', format: 'json', limit: '6', countrycodes: 'co',
+    });
+    const d = await json(url);
+    return (Array.isArray(d) ? d : [])
+      .map(r => ({ nombre: r.display_name, lat: +r.lat, lon: +r.lon }))
+      .filter(r => enBogota(r.lat, r.lon));
+  } catch (e) { return []; }
 }
 
 /* ==================== 5) ESTUDIO DE MERCADO (Pro) ==================== */

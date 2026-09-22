@@ -10,7 +10,7 @@ Publicado en **https://proyectos-lifecity.github.io/lifecity-visor-urbano/**
 |---|---|---|
 | **Landing** (`index.html`) | Explica la herramienta a un interesado y lo lleva al botón *Abrir la herramienta*. Incluye formulario de contacto que entra al CRM. | — |
 | **Cuenta** (`app/index.html`) | Login con **Firebase** (correo/contraseña o Google). Al crear la cuenta, el usuario **entra como lead al CRM de Life City**. | `crm/lead.js` |
-| **1 · Lote** | Toca el mapa, busca por dirección o código, usa tu GPS, o **toma una foto**: si trae GPS EXIF se ubica sola. | WFS `catastro:lote` (IDECA) |
+| **1 · Lote** | Toca el mapa, escribe la dirección (`Calle 67 # 7-67`, `Carrera 7 con Calle 72`) o el código, usa tu GPS, o **toma una foto**: si trae GPS EXIF se ubica sola. | WFS `catastro:lote` + placa domiciliaria (IDECA) |
 | **2 · Normativa** | Tratamiento, tipología, altura máxima, rango de edificabilidad, antejardín, área de actividad y UPL. | POT · Decreto 555 de 2021 (SDP) |
 | **3 · Masa 3D** | Volumen con **antejardín, aislamiento lateral y posterior** y altura por pisos, precargados desde la norma y editables con sliders. | three.js |
 | **4 · Informe** | Documento editable con lote, norma, masa y cifras, enviado **al correo de la cuenta**. | Apps Script |
@@ -35,6 +35,7 @@ Los visores anteriores (`city_viewer.html` multi-ciudad, `cali_aec_viewer.html`,
 - **Todo en EPSG:4326**, igual que OpenStreetMap: el lote calza exacto sobre el mapa.
 - **Retrocesos por orientación, no por índice de lado.** El catastro densifica los linderos en decenas de segmentos diminutos (un lote típico trae 64 vértices, varios de 6 cm). Por eso la masa agrupa los lados por su normal: los que miran al frente reciben el antejardín, los opuestos el aislamiento posterior y el resto el lateral. El botón **↻ Girar frente** recorre solo los lados reales.
 - **Honestidad sobre el origen del dato.** El POT publica por GIS el antejardín y el rango de edificabilidad; las alturas por rango y los aislamientos laterales/posteriores están en las tablas del Decreto y dependen del uso. La app marca cada valor como *norma* o *valor por defecto*, y repite que **el IRM oficial del predio es el que manda**.
+- **Direcciones con nomenclatura bogotana.** La búsqueda usa la *placa domiciliaria* oficial del catastro, que guarda la vía (`KR 8`) y el número (`66 98`) por separado y además dice a qué lote pertenece. Entiende `Cra`, `No.`, `Avenida Calle`, y los cruces: `Carrera 7 con Calle 72` es, en la nomenclatura real, `KR 7 # 72-…`. Si esa placa exacta no existe, cae a la misma cuadra. OpenStreetMap queda solo de respaldo, porque con direcciones colombianas se equivoca.
 - **El plan Pro no se puede falsificar desde el cliente**: las reglas de Firestore impiden escribir `plan`, que solo cambia el webhook de pago.
 
 ## Configuración pendiente
