@@ -1,49 +1,52 @@
-# LifeCity · Plataforma Urbana AEC multi-ciudad
+# Visor Urbano Bogotá · Life City
 
-Cali · Bogotá · Medellín · Cartagena · Miami Lakes · Boca Ratón · Delray Beach · Quito · Buenos Aires · Madrid
+Landing + herramienta web para evaluar un lote de Bogotá: **encuentra el predio, lee su norma del POT, modela la masa en 3D y recibe el informe por correo**. El estudio de mercado es la función del plan Pro.
 
-Visores 3D de propiedades y catastro multi-ciudad con estudio de masas tipo Revit (export **IFC**), normativa urbanística por lote, fotos geolocalizadas de WhatsApp (vía **OpenClaw** en AWS, o Telegram/WhatsApp vía n8n) y login.
+Publicado en **https://proyectos-lifecity.github.io/lifecity-visor-urbano/**
 
-## Páginas
+## El recorrido
+
+| Paso | Qué hace | Fuente |
+|---|---|---|
+| **Landing** (`index.html`) | Explica la herramienta a un interesado y lo lleva al botón *Abrir la herramienta*. Incluye formulario de contacto que entra al CRM. | — |
+| **Cuenta** (`app/index.html`) | Login con **Firebase** (correo/contraseña o Google). Al crear la cuenta, el usuario **entra como lead al CRM de Life City**. | `crm/lead.js` |
+| **1 · Lote** | Toca el mapa, busca por dirección o código, usa tu GPS, o **toma una foto**: si trae GPS EXIF se ubica sola. | WFS `catastro:lote` (IDECA) |
+| **2 · Normativa** | Tratamiento, tipología, altura máxima, rango de edificabilidad, antejardín, área de actividad y UPL. | POT · Decreto 555 de 2021 (SDP) |
+| **3 · Masa 3D** | Volumen con **antejardín, aislamiento lateral y posterior** y altura por pisos, precargados desde la norma y editables con sliders. | three.js |
+| **4 · Informe** | Documento editable con lote, norma, masa y cifras, enviado **al correo de la cuenta**. | Apps Script |
+| **4 · Mercado** ⭐ | Estrato, entorno a 1 km por categorías y portales de comparables. **Función Pro.** | IDECA + OpenStreetMap |
+
+## Archivos
+
 | Archivo | Qué hace |
 |---|---|
-| `login.html` | Inicio de sesión / registro (LifeCity). Puerta de entrada a la plataforma. |
-| `cali_aec_viewer.html` | Visor Cali: catastro IDESC (WFS), índices POT 2014 (ICB/ICA), OSM, IFC, nubes de puntos, fotos. |
-| `city_viewer.html` | **Visor multi-ciudad** con pestañas: `?city=bogota` · `?city=medellin` · `?city=cartagena` · `?city=miamilakes` · `?city=bocaraton` · `?city=delraybeach` · `?city=quito` · `?city=buenosaires` · `?city=madrid`. |
-| `masas.html` | Estudio de masas conceptual (tipo Revit): huella del lote, masas, niveles, muros anclados, nube de puntos y **exportación IFC (masas + muros + niveles)**. |
-| `auth.js` | Guard de sesión (redirige a `login.html` si no hay sesión). |
-| `OPENCLAW.md` | Guía para que **OpenClaw** (agente en AWS) alimente los visores con fotos de WhatsApp geolocalizadas (S3, endpoint HTTP o archivo del repo). |
-| `fotos/` | `fotos_whatsapp.json` (fotos que leen los visores) y `fotos/img/` para las imágenes. |
-| `n8n/` | Workflows de fotos por **Telegram** y **WhatsApp Cloud API** (ver `n8n/README.md`). |
+| `index.html` | Landing para interesados, con CTA a la herramienta y formulario que escribe en el CRM. |
+| `app/index.html` | La herramienta: login, mapa, normativa, masa 3D, mercado e informe. |
+| `app/bogota.js` | Lote, normativa del POT, parámetros iniciales de la masa y estudio de mercado. |
+| `firebase-config.js` | Proyecto Firebase (se reutiliza el de LandX: una cuenta Pro sirve en ambas apps). |
+| `app-config.js` | Link de pago Wompi, endpoint de informes y módulo del CRM. |
+| `firestore.rules` | Nadie puede autoasignarse el plan Pro; cada quien solo ve lo suyo. |
+| `backend/report-mailer.gs` | Apps Script que envía el informe por correo. |
 
-## Fuentes de datos por ciudad (todas reproyectadas a EPSG:4326 = solape exacto con OSM)
-| Ciudad | Lotes / parcelas | Normativa (índices + volumetría) |
-|---|---|---|
-| Cali | WFS IDESC `catastro:cat_bas_terrenos` | POT 2014: `nur_edificabilidad_icb` (ICB/ICA) + tratamientos |
-| Bogotá | **WFS 2.0 IDECA** `catastro/lote` (serviciosgis.catastrobogota.gov.co) | **POT 555/2021 (SDP)**: tratamiento urbanístico, altura máxima, rangos de edificabilidad, antejardines, área de actividad, UPL |
-| Medellín | GeoMedellín (ArcGIS REST; URL de capa configurable — el servidor restringe acceso externo por momentos) | POT Acuerdo 48/2014: IC/IO/altura manuales + enlace GeoMedellín |
-| Cartagena | MIDAS (URL de capa configurable; Cloudflare limita el acceso externo) | POT Dec. 0977/2001: IC/IO/pisos manuales + enlaces MIDAS/PEMP |
-| Miami Lakes | Miami-Dade GIS `MD_Emaps/72` (parcelas + folio + dirección) | Capa *Municipal Zoning* (distrito) + **Municode** (Town of Miami Lakes LDC) con FAR/pisos editables |
-| Boca Ratón | Florida Statewide Cadastral (FGIO) | Distritos cap. 28 del Code of Ordinances en **Municode** + FAR/pisos editables |
-| Delray Beach | Florida Statewide Cadastral (FGIO) | **Capa Zoning oficial del City GIS** (distrito en el punto) + explorador interactivo de distritos LDR 4.4 con enlace directo a **Municode** y calculadora FAR/pisos/setback |
-| Quito | Polígonos de zonificación **PUOS** (copia de referencia) | Decodificación del código PUOS (pisos, COS PB, COS total) + enlace al IRM oficial (PAM) |
-| Buenos Aires | Catastro CABA vía **epok/USIG** (parcela por dirección o SMP) | Distrito CPU/CU en el punto (USIG `datos_utiles`) + FOT/pisos editables + enlace al Código Urbanístico |
-| Madrid | **WFS INSPIRE CadastralParcel** (D.G. Catastro, oficial) | PGOUM: Norma Zonal manual + enlaces al Visualizador Urbanístico y Sede Catastro por referencia |
+Los visores anteriores (`city_viewer.html` multi-ciudad, `cali_aec_viewer.html`, `masas.html`) siguen en el repo y funcionan por su propia URL, con el login antiguo de `auth.js`.
 
-## Login (lifecity.com.co)
-- **Demo local:** `demo@lifecity.com.co` / `lifecity`. Las cuentas se guardan en el navegador (localStorage) — sirve para demo/piloto en un mismo equipo.
-- **Auth real (multi-dispositivo):** en `login.html`, arriba del `<script>`, define:
-  ```js
-  const SUPABASE_URL = 'https://TU-proyecto.supabase.co';
-  const SUPABASE_ANON_KEY = 'TU_ANON_KEY';
-  ```
-  Con eso `login.html` usa **Supabase Auth** (registro/login/confirmación por correo) sin más cambios. Crea el proyecto gratis en supabase.com → Settings → API para las dos claves.
-- El guard (`auth.js`) solo verifica la sesión local que deja el login; funciona igual en ambos modos.
+## Cómo funciona por dentro
 
-## Desplegar en lifecity.com.co
-Son archivos estáticos (HTML/JS). Sube toda la carpeta a tu hosting (o subdominio, p.ej. `app.lifecity.com.co`) y entra por `login.html`. No requiere servidor; solo el navegador consume:
-- WFS catastro/POT de la Alcaldía (IDESC), tiles de OpenStreetMap y (opcional) el webhook de n8n para fotos.
+- **Todo en EPSG:4326**, igual que OpenStreetMap: el lote calza exacto sobre el mapa.
+- **Retrocesos por orientación, no por índice de lado.** El catastro densifica los linderos en decenas de segmentos diminutos (un lote típico trae 64 vértices, varios de 6 cm). Por eso la masa agrupa los lados por su normal: los que miran al frente reciben el antejardín, los opuestos el aislamiento posterior y el resto el lateral. El botón **↻ Girar frente** recorre solo los lados reales.
+- **Honestidad sobre el origen del dato.** El POT publica por GIS el antejardín y el rango de edificabilidad; las alturas por rango y los aislamientos laterales/posteriores están en las tablas del Decreto y dependen del uso. La app marca cada valor como *norma* o *valor por defecto*, y repite que **el IRM oficial del predio es el que manda**.
+- **El plan Pro no se puede falsificar desde el cliente**: las reglas de Firestore impiden escribir `plan`, que solo cambia el webhook de pago.
 
-## Notas
-- Coordenadas en **EPSG:4326 (WGS84)** = coinciden con OpenStreetMap.
-- El login local es una **puerta de front-end** (no cifra datos en el servidor). Para producción real usa el modo Supabase.
+## Configuración pendiente
+
+1. **Informe por correo**: crear el Apps Script con `backend/report-mailer.gs`, implementarlo como aplicación web («Ejecutar como: Yo», «Cualquier persona») y pegar la URL `/exec` en `app-config.js` → `reportEndpoint`. Mientras esté vacío, el botón descarga el informe en vez de enviarlo.
+2. **Reglas de Firestore**: publicar `firestore.rules` en el proyecto `analisis-de-lotes`.
+3. **Dominio**: si se quiere `bogota.lifecity.com.co`, añadir el CNAME y configurarlo en Settings → Pages.
+
+## Desarrollo
+
+```bash
+python -m http.server 8790
+```
+
+Abre `http://localhost:8790`. Para probar la herramienta **sin crear cuentas reales ni leads**, usa `http://localhost:8790/app/?demo=1`: fuerza el modo local (todo queda en el navegador).

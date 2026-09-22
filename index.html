@@ -3,13 +3,311 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LifeCity · Plataforma Urbana AEC</title>
-<meta http-equiv="refresh" content="0; url=login.html">
-<link rel="canonical" href="login.html">
-<style>html,body{height:100%;margin:0;background:#0a0d12;color:#e6ecf5;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center}a{color:#f4b942}</style>
+<title>Visor Urbano Bogotá · Life City</title>
+<meta name="description" content="Encuentra cualquier lote de Bogotá, consulta su norma del POT y modela en 3D la masa que permite. Informe al correo en minutos.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230F6B4F'/%3E%3Cpath d='M8 22V13l8-5 8 5v9z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#F2F5F3; --surface:#FFFFFF; --surface-2:#E8EFEB;
+    --ink:#0E1C18; --ink-2:#3A4E48; --muted:#687D76;
+    --line:#D6E0DB; --line-strong:#BFCEC7;
+    --green:#0F6B4F; --green-ink:#0B4E3A; --green-soft:#DFEDE6;
+    --signal:#C0491B; --signal-soft:#F8E6DD;
+    --band:#0E1C18; --band-ink:#E9F1ED; --band-accent:#5CCB9C;
+    --f-display:'Archivo',system-ui,sans-serif;
+    --f-body:'IBM Plex Sans',system-ui,sans-serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --maxw:1140px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0B1310; --surface:#121D19; --surface-2:#17241F;
+      --ink:#E9F1ED; --ink-2:#BACBC3; --muted:#8CA39A;
+      --line:#23342D; --line-strong:#33483F;
+      --green:#5CCB9C; --green-ink:#8FE0BC; --green-soft:#17281F;
+      --signal:#F08A5D; --signal-soft:#2A1B13;
+      --band:#081A13; --band-ink:#E9F1ED;
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--f-body);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+  a{color:inherit}
+  .eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:var(--green);margin-bottom:14px}
+  h1,h2,h3{font-family:var(--f-display);line-height:1.04;letter-spacing:-.02em}
+  h1{font-size:clamp(42px,7.6vw,86px);font-stretch:78%;font-weight:800}
+  h1 em{font-style:normal;color:var(--green)}
+  h2{font-size:clamp(28px,4.2vw,46px);font-stretch:82%;font-weight:750;margin-bottom:12px}
+  h3{font-size:19px;font-stretch:92%;font-weight:700;margin-bottom:6px}
+  p.lede{font-size:clamp(16px,1.9vw,20px);color:var(--ink-2);max-width:56ch}
+  section{padding:74px 0;border-top:1px solid var(--line)}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:999px;
+    text-decoration:none;font-weight:600;font-size:15px;border:1px solid var(--line-strong);
+    background:var(--surface);color:var(--ink);transition:.16s}
+  .btn:hover{border-color:var(--green);transform:translateY(-1px)}
+  .btn.primary{background:var(--green);color:var(--paper);border-color:var(--green)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.sm{padding:9px 16px;font-size:14px}
+
+  nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 88%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  nav .wrap{display:flex;align-items:center;gap:18px;padding-top:13px;padding-bottom:13px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--f-display);font-weight:800;font-stretch:86%;font-size:17px}
+  nav .links{margin-left:auto;display:flex;gap:20px;align-items:center;font-size:14px}
+  nav .links a{text-decoration:none;color:var(--ink-2)}
+  nav .links a:hover{color:var(--green)}
+
+  header.hero{padding:70px 0 84px}
+  .hero-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:46px;align-items:center}
+  .hero .cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:26px}
+  .fine{font-size:13px;color:var(--muted);margin-top:14px}
+
+  /* Maqueta */
+  .mock{background:#0f1720;border:1px solid var(--line-strong);border-radius:18px;padding:14px;
+    box-shadow:0 22px 50px -26px rgba(0,0,0,.5)}
+  .mock .bar{display:flex;align-items:center;gap:6px;margin-bottom:11px}
+  .mock .dot{width:8px;height:8px;border-radius:50%;background:#2a3a4a}
+  .mock .scr{background:#070c12;border-radius:11px;overflow:hidden}
+  .mock svg{display:block;width:100%;height:auto}
+  .mock .row{display:flex;justify-content:space-between;padding:8px 12px;font-family:var(--f-mono);
+    font-size:11px;color:#8ea3b8;border-top:1px solid #1b2836}
+  .mock .row b{color:#5CCB9C}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:30px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:22px}
+  .card .num{font-family:var(--f-mono);font-size:11px;letter-spacing:2px;color:var(--green);margin-bottom:9px}
+  .card p{font-size:14.5px;color:var(--ink-2)}
+
+  .band{background:var(--band);color:var(--band-ink);border-top:0}
+  .band h2{color:var(--band-ink)}
+  .band .lede{color:#B5C9C0}
+  .band .card{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.1)}
+  .band .card h3{color:var(--band-accent)}
+  .band .card p{color:#B5C9C0}
+
+  .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:30px}
+  .plan{background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:26px;display:flex;flex-direction:column}
+  .plan.pro{border:2px solid var(--green)}
+  .plan .price{font-family:var(--f-display);font-size:34px;font-weight:800;font-stretch:84%;margin:6px 0 4px}
+  .plan ul{list-style:none;margin:16px 0 22px;flex:1}
+  .plan li{padding:7px 0 7px 24px;position:relative;font-size:14.5px;color:var(--ink-2);border-bottom:1px solid var(--line)}
+  .plan li::before{content:'✓';position:absolute;left:0;color:var(--green);font-weight:700}
+  .plan .tagp{display:inline-block;font-family:var(--f-mono);font-size:10px;letter-spacing:1.5px;
+    background:var(--green-soft);color:var(--green-ink);padding:4px 9px;border-radius:99px}
+
+  .faq{display:grid;grid-template-columns:1fr 1fr;gap:26px 40px;margin-top:26px}
+  .faq h3{font-size:16px}
+  .faq p{font-size:14.5px;color:var(--ink-2)}
+
+  form.lead{background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:24px;max-width:560px}
+  form.lead .f{margin-bottom:12px}
+  form.lead label{display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:1.4px;
+    text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  form.lead input,form.lead textarea{width:100%;padding:11px 13px;border:1px solid var(--line-strong);
+    border-radius:10px;background:var(--paper);color:var(--ink);font-family:inherit;font-size:15px}
+  form.lead input:focus,form.lead textarea:focus{outline:none;border-color:var(--green)}
+  form.lead button{width:100%;margin-top:4px;cursor:pointer;border:0;font-family:inherit}
+  .msg{font-size:14px;margin-top:11px;min-height:20px}
+  .msg.ok{color:var(--green)} .msg.bad{color:var(--signal)}
+
+  footer{padding:40px 0;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+  footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  footer a{text-decoration:none} footer a:hover{color:var(--green)}
+
+  @media(max-width:900px){ .hero-grid,.faq{grid-template-columns:1fr} nav .links a:not(.btn){display:none} }
+</style>
 </head>
 <body>
-<p>Redirigiendo a <a href="login.html">LifeCity</a>…</p>
-<script>location.replace('login.html');</script>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="./" style="text-decoration:none">
+      <svg width="27" height="27" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0F6B4F"/><path d="M8 22V13l8-5 8 5v9z" fill="none" stroke="#fff" stroke-width="2"/></svg>
+      Visor Urbano
+    </a>
+    <div class="links">
+      <a href="#como">Cómo funciona</a>
+      <a href="#planes">Planes</a>
+      <a href="#contacto">Contacto</a>
+      <a class="btn sm primary" href="./app/">Abrir la herramienta</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">Bogotá D.C. · POT Decreto 555 de 2021</div>
+      <h1>¿Cuánto <em>puedo construir</em> en ese lote?</h1>
+      <p class="lede" style="margin-top:20px">Señala un lote en el mapa —o tómale una foto desde el andén— y en segundos tienes su norma urbanística oficial y la masa 3D que permite, con retrocesos y alturas que mueves con un slider.</p>
+      <div class="cta">
+        <a class="btn primary" href="./app/">Empieza gratis →</a>
+        <a class="btn" href="#como">Ver cómo funciona</a>
+      </div>
+      <p class="fine">Datos oficiales: catastro IDECA y Secretaría Distrital de Planeación. Sin instalar nada.</p>
+    </div>
+
+    <div class="mock" aria-hidden="true">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      <div class="scr">
+        <svg viewBox="0 0 320 210">
+          <rect width="320" height="210" fill="#070c12"/>
+          <g stroke="#182635" stroke-width="1">
+            <path d="M0 52h320M0 104h320M0 156h320M64 0v210M128 0v210M192 0v210M256 0v210"/>
+          </g>
+          <polygon points="128,104 192,104 192,156 128,156" fill="#2f9e6e" fill-opacity=".22" stroke="#2f9e6e" stroke-width="2"/>
+          <polygon points="136,112 184,112 184,148 136,148" fill="#2f9e6e" fill-opacity=".5" stroke="#8fe8c0" stroke-width="1"/>
+          <path d="M136 112l14-20h48l-14 20M184 112l14-20v36l-14 20" fill="#2f9e6e" fill-opacity=".38" stroke="#8fe8c0" stroke-width="1"/>
+          <line x1="128" y1="156" x2="192" y2="156" stroke="#f4b942" stroke-width="3"/>
+          <circle cx="160" cy="130" r="3.5" fill="#f4b942"/>
+        </svg>
+        <div class="row"><span>Tratamiento</span><b>Renovación</b></div>
+        <div class="row"><span>Antejardín</span><b>0 m</b></div>
+        <div class="row"><span>Pisos · rango 3</span><b>8</b></div>
+        <div class="row"><span>Área construida</span><b>21.400 m²</b></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow">El problema</div>
+    <h2>La norma existe, pero está repartida</h2>
+    <p class="lede">Para saber qué permite un lote hay que cruzar catastro, tratamiento, rango de edificabilidad y antejardines. Y aun así falta ver el volumen.</p>
+    <div class="cards">
+      <div class="card"><h3>Horas por lote</h3><p>Buscar el predio, abrir tres visores distintos y transcribir a mano lo que dice cada uno.</p></div>
+      <div class="card"><h3>Sin volumen</h3><p>Los índices en una tabla no dicen si la torre cabe, ni cómo se ve con los aislamientos aplicados.</p></div>
+      <div class="card"><h3>Difícil de mostrar</h3><p>Al cliente o al socio hay que entregarle algo entendible, no capturas de pantalla sueltas.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="como">
+  <div class="wrap">
+    <div class="eyebrow">Cómo funciona</div>
+    <h2>Del andén al informe, en cuatro pasos</h2>
+    <div class="cards">
+      <div class="card"><div class="num">PASO 01</div><h3>Ubica el lote</h3><p>Tócalo en el mapa, búscalo por dirección o código, o tómale una foto: si trae GPS, se ubica sola. El lote sale del catastro de IDECA.</p></div>
+      <div class="card"><div class="num">PASO 02</div><h3>Lee su norma</h3><p>Tratamiento, rango de edificabilidad, antejardín, área de actividad y UPL, tomados del POT vigente de la Secretaría de Planeación.</p></div>
+      <div class="card"><div class="num">PASO 03</div><h3>Modela la masa</h3><p>La masa 3D arranca con los retrocesos y la altura que sugiere la norma. Mueves los sliders y el volumen responde al instante.</p></div>
+      <div class="card"><div class="num">PASO 04</div><h3>Recibe el informe</h3><p>Lote, norma, masa y cifras en un documento editable que llega al correo de tu cuenta.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="eyebrow" style="color:var(--band-accent)">Lo que ves</div>
+    <h2>Datos oficiales, no estimaciones</h2>
+    <p class="lede">Todo viaja en EPSG:4326, el mismo sistema del mapa, así que el lote calza exacto sobre la ciudad.</p>
+    <div class="cards">
+      <div class="card"><h3>Catastro IDECA</h3><p>Geometría y código del lote desde el WFS oficial de Catastro Distrital.</p></div>
+      <div class="card"><h3>POT 555 de 2021</h3><p>Tratamiento, rango de edificabilidad, antejardín, área de actividad y UPL por punto.</p></div>
+      <div class="card"><h3>Masa editable</h3><p>Retrocesos por lado —antejardín, lateral y posterior— y altura por pisos, con el frente que tú eliges.</p></div>
+      <div class="card"><h3>Con honestidad</h3><p>Cada valor dice de dónde sale: de la norma o como punto de partida editable. El IRM oficial siempre manda.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="planes">
+  <div class="wrap">
+    <div class="eyebrow">Planes</div>
+    <h2>Empieza gratis</h2>
+    <div class="plans">
+      <div class="plan">
+        <span class="tagp">GRATIS</span>
+        <div class="price">$0</div>
+        <p style="color:var(--muted);font-size:14px">Para explorar lotes sin límite.</p>
+        <ul>
+          <li>Lote del catastro y su norma del POT</li>
+          <li>Masa 3D con retrocesos y alturas editables</li>
+          <li>Informe descargable</li>
+          <li>Estudios guardados en tu cuenta</li>
+        </ul>
+        <a class="btn" href="./app/">Crear mi cuenta</a>
+      </div>
+      <div class="plan pro">
+        <span class="tagp">PRO</span>
+        <div class="price">Pro</div>
+        <p style="color:var(--muted);font-size:14px">Cuando el lote ya es un negocio.</p>
+        <ul>
+          <li>Todo lo del plan gratis</li>
+          <li><b>Estudio de mercado</b>: entorno, estrato y comparables</li>
+          <li>Informe completo enviado a tu correo</li>
+          <li>Soporte directo del equipo de Life City</li>
+        </ul>
+        <a class="btn primary" href="./app/">Pasar a Pro</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="eyebrow">Preguntas</div>
+    <h2>Lo que suelen preguntarnos</h2>
+    <div class="faq">
+      <div><h3>¿De dónde sale la norma?</h3><p>Del servicio oficial de la Secretaría Distrital de Planeación (POT, Decreto 555 de 2021) y del catastro de IDECA, consultados en vivo sobre el punto del lote.</p></div>
+      <div><h3>¿La masa reemplaza un estudio de norma?</h3><p>No. Es un tanteo volumétrico rápido y honesto: te dice qué valores vienen de la norma y cuáles son un punto de partida. El IRM oficial del predio es el que manda.</p></div>
+      <div><h3>¿Por qué los aislamientos son editables?</h3><p>Porque el POT publica por GIS el antejardín y el rango, pero los aislamientos laterales y posteriores están en las tablas del Decreto y dependen del uso y del predio.</p></div>
+      <div><h3>¿Funciona en el celular?</h3><p>Sí. Está pensado para usarse parado frente al lote: tomas la foto y la app lo ubica con el GPS.</p></div>
+      <div><h3>¿Qué pasa con mis datos?</h3><p>Tu cuenta y tus estudios quedan en tu perfil. Al registrarte, el equipo de Life City puede contactarte sobre la herramienta.</p></div>
+      <div><h3>¿Sirve para otras ciudades?</h3><p>Esta versión es de Bogotá. Life City tiene visores de Cali, Medellín, Cartagena, Quito, Buenos Aires, Madrid y varias ciudades de Florida.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="contacto">
+  <div class="wrap">
+    <div class="eyebrow">Contacto</div>
+    <h2>¿Lo quieres para tu equipo?</h2>
+    <p class="lede" style="margin-bottom:26px">Déjanos tus datos y te escribimos. O entra directo: crear la cuenta toma menos de un minuto.</p>
+    <form class="lead" id="leadForm">
+      <div class="f"><label>Nombre</label><input id="lNombre" required placeholder="Tu nombre"></div>
+      <div class="f"><label>Correo</label><input id="lCorreo" type="email" required placeholder="tucorreo@empresa.com"></div>
+      <div class="f"><label>Celular</label><input id="lCelular" placeholder="300 000 0000"></div>
+      <div class="f"><label>¿Qué necesitas?</label><textarea id="lMensaje" rows="3" placeholder="Estoy evaluando lotes en…"></textarea></div>
+      <button class="btn primary" type="submit" id="lBtn">Quiero que me contacten</button>
+      <div class="msg" id="lMsg"></div>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 <b>Life City</b> · Visor Urbano Bogotá</span>
+    <a href="./app/">Abrir la herramienta</a>
+    <a href="mailto:proyectos@lifecity.com.co">proyectos@lifecity.com.co</a>
+  </div>
+</footer>
+
+<script src="./app-config.js"></script>
+<script type="module">
+/* El formulario de la landing entra al mismo CRM que los registros de la app. */
+const $ = (id) => document.getElementById(id);
+$('leadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('lBtn'), msg = $('lMsg');
+  btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Enviando…';
+  try {
+    const { guardarLead } = await import((window.appConfig || {}).crmLeadModule);
+    await guardarLead({
+      nombre: $('lNombre').value, correo: $('lCorreo').value, celular: $('lCelular').value,
+      mensaje: $('lMensaje').value,
+      proyecto: (window.appConfig || {}).crmProyecto || 'Visor Urbano Bogotá',
+      origen: 'Landing Visor Bogotá',
+    });
+    msg.className = 'msg ok';
+    msg.textContent = '¡Listo! Te escribimos pronto. Mientras tanto puedes abrir la herramienta.';
+    $('leadForm').reset();
+  } catch (err) {
+    msg.className = 'msg bad';
+    msg.textContent = 'No se pudo enviar. Escríbenos a proyectos@lifecity.com.co';
+  } finally { btn.disabled = false; }
+});
+</script>
 </body>
 </html>

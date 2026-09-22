@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visor Urbano Bogotá · Life City</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f9e6e'/%3E%3Cpath d='M8 22V13l8-5 8 5v9z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --bg:#0f1720; --panel:#16212e; --panel-2:#1c2938; --line:#27384a;
+    --text:#e8eef6; --dim:#8ea3b8; --accent:#2f9e6e; --accent-2:#3aa0ff;
+    --warn:#f4b942; --bad:#ff6b6b; --pro:#f4b942;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;-webkit-text-size-adjust:100%}
+  .hidden{display:none !important}
+  button,input,select{font-family:inherit;font-size:inherit}
+  a{color:var(--accent-2)}
+
+  /* ---------- AUTH ---------- */
+  #authView{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:420px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .brand svg{flex:none}
+  .brand b{font-size:19px;letter-spacing:-.2px}
+  .brand .city{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:20px;line-height:1.5}
+  .tabs{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:10px;margin-bottom:16px}
+  .tabs button{flex:1;padding:9px;background:none;border:0;color:var(--dim);border-radius:7px;cursor:pointer;font-weight:600;font-size:13px}
+  .tabs button.on{background:var(--panel-2);color:var(--text)}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+  .field input{width:100%;padding:11px 12px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--text)}
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .btn{width:100%;padding:12px;border:0;border-radius:10px;background:var(--accent);color:#04120c;font-weight:700;cursor:pointer}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.55;cursor:progress}
+  .btn.ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+  .btn.line{background:none;border:1px solid var(--line);color:var(--text)}
+  .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+  .sep{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:12px;margin:14px 0}
+  .sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--line)}
+  .demo{background:#2a2410;border:1px solid #5a4a15;color:var(--warn);padding:9px 11px;border-radius:9px;font-size:12px;margin-bottom:14px;line-height:1.45}
+
+  /* ---------- APP ---------- */
+  header{position:sticky;top:0;z-index:600;display:flex;align-items:center;gap:12px;padding:10px 16px;
+    background:rgba(15,23,32,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header .brand{margin:0;flex:1;min-width:0}
+  .plan{font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
+  .plan.pro{color:var(--pro);border-color:var(--pro)}
+  .icon-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--dim);width:34px;height:34px;border-radius:9px;cursor:pointer;flex:none}
+  .icon-btn:hover{color:var(--text)}
+  main{max-width:1180px;margin:0 auto;padding:16px 16px 60px}
+
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+  .step>h2{display:flex;align-items:center;gap:10px;padding:14px 16px;font-size:14px;font-weight:700;border-bottom:1px solid var(--line)}
+  .step>h2 .n{font-family:var(--mono);font-size:11px;width:22px;height:22px;display:grid;place-items:center;
+    border-radius:50%;background:var(--accent);color:#04120c;flex:none}
+  .step>h2 .tag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:1px}
+  .step.off>h2 .n{background:var(--panel-2);color:var(--dim)}
+  .step.off .body{display:none}
+  .body{padding:16px}
+
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:130px}
+  #map{height:340px;border-radius:11px;border:1px solid var(--line);background:#0b1118}
+  .hint{font-size:12px;color:var(--dim);line-height:1.55;margin-top:10px}
+  .hint b{color:var(--text)}
+
+  .kv{display:grid;grid-template-columns:1fr auto;gap:7px 14px;font-size:13px}
+  .kv .k{color:var(--dim)}
+  .kv .v{text-align:right;font-weight:600}
+  .kv .v small{display:block;font-weight:400;font-size:10px;color:var(--dim);font-family:var(--mono)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .stat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px}
+  .stat .l{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px}
+  .stat .v{font-size:21px;font-weight:700;margin-top:2px}
+  .stat .v.sm{font-size:15px}
+
+  .sl{margin-bottom:13px}
+  .sl label{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:5px}
+  .sl label b{color:var(--accent);font-family:var(--mono)}
+  .sl input[type=range]{width:100%;accent-color:var(--accent)}
+  .sl .src{font-size:10px;font-family:var(--mono);color:var(--dim)}
+  #canvas3d{width:100%;height:420px;display:block;border-radius:11px;border:1px solid var(--line);background:#070c12}
+
+  .meter{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:12px}
+  .meter .bar{height:9px;background:var(--panel-2);border-radius:5px;overflow:hidden;margin:7px 0}
+  .meter .bar span{display:block;height:100%;background:var(--accent);transition:width .25s}
+  .meter .bar span.over{background:var(--bad)}
+  .meter .t{display:flex;justify-content:space-between;font-size:12px}
+
+  .pro-tag{font-family:var(--mono);font-size:9px;background:var(--pro);color:#231a02;padding:2px 6px;border-radius:20px;margin-left:6px;font-weight:700}
+  .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px}
+  .cat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .cat .n{font-size:20px;font-weight:700;color:var(--accent)}
+  .cat .t{font-size:11px;color:var(--dim)}
+  .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .links a{font-size:12px;padding:7px 11px;background:var(--bg);border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--text)}
+  .links a:hover{border-color:var(--accent-2)}
+
+  /* ---------- modal ---------- */
+  .modal{position:fixed;inset:0;z-index:900;background:rgba(6,10,15,.78);display:grid;place-items:center;padding:20px}
+  .modal .card{max-width:440px}
+  .bullets{list-style:none;margin:14px 0;font-size:13px}
+  .bullets li{padding:6px 0 6px 22px;position:relative;color:var(--dim)}
+  .bullets li::before{content:'✓';position:absolute;left:0;color:var(--accent);font-weight:700}
+
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--panel-2);
+    border:1px solid var(--line);border-left:3px solid var(--accent);padding:11px 16px;border-radius:10px;
+    font-size:13px;z-index:950;max-width:88vw;display:none}
+  #toast.show{display:block}
+  #toast.bad{border-left-color:var(--bad)}
+
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media(max-width:600px){ #map{height:280px} #canvas3d{height:320px} main{padding:12px 12px 50px} }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+
+<!-- ============================ LOGIN ============================ -->
+<div id="authView">
+  <div class="card">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#2f9e6e"/><path d="M8 22V13l8-5 8 5v9z" fill="none" stroke="#fff" stroke-width="2"/></svg>
+      <div><b>Visor Urbano</b><div class="city">Bogotá · Life City</div></div>
+    </div>
+    <p class="sub">Encuentra un lote, consulta su norma del POT y modela la masa que permite. Crea tu cuenta para guardar tus estudios y recibir el informe por correo.</p>
+    <div id="demoBanner" class="demo hidden">Modo demo: no hay Firebase configurado, tu cuenta y tus estudios se guardan solo en este navegador.</div>
+    <div class="tabs">
+      <button id="tabLogin" class="on">Entrar</button>
+      <button id="tabSignup">Crear cuenta</button>
+    </div>
+    <div class="field"><label>Correo</label><input type="email" id="aEmail" placeholder="tucorreo@ejemplo.com" autocomplete="email"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="aPass" placeholder="Mínimo 6 caracteres" autocomplete="current-password"></div>
+    <button class="btn" id="aSubmit">Entrar</button>
+    <div class="err" id="aErr"></div>
+    <div class="sep" id="gSep">o</div>
+    <button class="btn ghost" id="aGoogle">Continuar con Google</button>
+    <p class="hint" style="margin-top:16px">Al crear tu cuenta aceptas que Life City te contacte sobre la herramienta. <a href="../">Volver a la página principal</a></p>
+  </div>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div id="appView" class="hidden">
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#2f9e6e"/><path d="M8 22V13l8-5 8 5v9z" fill="none" stroke="#fff" stroke-width="2"/></svg>
+      <div style="min-width:0"><b style="font-size:15px">Visor Urbano</b>
+        <div class="city" id="userMail" style="text-transform:none;letter-spacing:0;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</div></div>
+    </div>
+    <span class="plan" id="planBadge">Gratis</span>
+    <button class="icon-btn" id="btnUpgrade" title="Mejorar a Pro">★</button>
+    <button class="icon-btn" id="btnLogout" title="Cerrar sesión">⏻</button>
+  </header>
+
+  <main>
+    <!-- PASO 1 · LOTE -->
+    <section class="step" id="s1">
+      <h2><span class="n">1</span> Encuentra el lote <span class="tag" id="s1tag">Catastro IDECA</span></h2>
+      <div class="body">
+        <div class="row" style="margin-bottom:10px">
+          <input id="qDir" placeholder="Dirección, código de lote o 4.6527, -74.0608"
+                 style="flex:3;padding:11px 12px;background:var(--bg);border:1px solid var(--line);border-radius:9px;color:var(--text)">
+          <button class="btn" id="btnBuscar" style="flex:1">Buscar</button>
+        </div>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn line" id="btnFoto">📷 Tomar foto del lote</button>
+          <button class="btn line" id="btnGPS">📍 Usar mi ubicación</button>
+        </div>
+        <input type="file" id="fileFoto" accept="image/*" capture="environment" class="hidden">
+        <div id="map"></div>
+        <div class="hint">Toca el mapa sobre el lote, búscalo por dirección o toma una foto desde el andén: si la foto trae GPS, se ubica sola. Fuente: <b>WFS catastro:lote</b> de IDECA en EPSG:4326, por eso calza exacto con el mapa.</div>
+        <div id="fotoPrev" class="hidden" style="margin-top:12px">
+          <img id="fotoImg" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 2 · NORMATIVA -->
+    <section class="step off" id="s2">
+      <h2><span class="n">2</span> Normativa del lote <span class="tag">POT · Decreto 555 de 2021</span></h2>
+      <div class="body">
+        <div class="grid2">
+          <div>
+            <div class="stat" style="margin-bottom:10px"><div class="l">Lote</div><div class="v sm" id="nLote">—</div></div>
+            <div class="kv" id="nLoteKV"></div>
+          </div>
+          <div>
+            <div class="stat" style="margin-bottom:10px"><div class="l">Área del lote</div><div class="v" id="nArea">—</div></div>
+            <div class="kv" id="nNormaKV"></div>
+          </div>
+        </div>
+        <div class="hint" id="nFuente"></div>
+      </div>
+    </section>
+
+    <!-- PASO 3 · MASA 3D -->
+    <section class="step off" id="s3">
+      <h2><span class="n">3</span> Masa normativa 3D <span class="tag">Retrocesos y alturas editables</span></h2>
+      <div class="body">
+        <div class="grid2">
+          <div>
+            <canvas id="canvas3d"></canvas>
+            <div class="row" style="margin-top:9px">
+              <button class="btn line" id="btnIso">Isométrica</button>
+              <button class="btn line" id="btnTop">Planta</button>
+              <button class="btn line" id="btnFrente">↻ Girar frente</button>
+            </div>
+          </div>
+          <div>
+            <div class="sl"><label>Pisos <b id="vPisos">5</b></label><input type="range" id="sPisos" min="1" max="40" step="1" value="5"><div class="src" id="srcPisos"></div></div>
+            <div class="sl"><label>Altura de piso (m) <b id="vFh">3.0</b></label><input type="range" id="sFh" min="2.4" max="6" step="0.1" value="3"></div>
+            <div class="sl"><label>Antejardín · frente (m) <b id="vAnte">3</b></label><input type="range" id="sAnte" min="0" max="15" step="0.5" value="3"><div class="src" id="srcAnte"></div></div>
+            <div class="sl"><label>Aislamiento lateral (m) <b id="vLat">3</b></label><input type="range" id="sLat" min="0" max="15" step="0.5" value="3"><div class="src">valor por defecto · el POT no lo publica por GIS</div></div>
+            <div class="sl"><label>Aislamiento posterior (m) <b id="vPost">3</b></label><input type="range" id="sPost" min="0" max="20" step="0.5" value="3"><div class="src">valor por defecto · el POT no lo publica por GIS</div></div>
+
+            <div class="row" style="margin-top:4px">
+              <div class="stat"><div class="l">Huella</div><div class="v sm" id="mHuella">—</div></div>
+              <div class="stat"><div class="l">Altura</div><div class="v sm" id="mAltura">—</div></div>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <div class="stat"><div class="l">Área construida</div><div class="v sm" id="mConstr">—</div></div>
+              <div class="stat"><div class="l">Índice</div><div class="v sm" id="mIndice">—</div></div>
+            </div>
+            <div class="meter">
+              <div class="t"><span>Ocupación del lote</span><span id="mtrTxt">—</span></div>
+              <div class="bar"><span id="mtrBar" style="width:0"></span></div>
+              <div class="hint" style="margin:0" id="mtrNote"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 4 · MERCADO + INFORME -->
+    <section class="step off" id="s4">
+      <h2><span class="n">4</span> Estudio de mercado e informe</h2>
+      <div class="body">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <b style="font-size:14px">Estudio de mercado</b><span class="pro-tag" id="mktProTag">PRO</span>
+        </div>
+        <button class="btn line" id="btnMercado" style="margin-bottom:12px">Analizar el entorno y los comparables</button>
+        <div id="mktOut"></div>
+
+        <div style="height:1px;background:var(--line);margin:18px 0"></div>
+
+        <b style="font-size:14px">Informe del estudio</b>
+        <p class="hint" style="margin-top:6px">Incluye el lote, la norma del POT, la masa que modelaste y sus cifras. Se envía al correo de tu cuenta: <b id="mailTo">—</b></p>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnCorreo">✉ Enviar a mi correo</button>
+          <button class="btn line" id="btnDescargar">⇩ Descargar (.doc)</button>
+          <button class="btn line" id="btnGuardar">★ Guardar estudio</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================ PRO ============================ -->
+<div class="modal hidden" id="upgradeModal">
+  <div class="card">
+    <div class="brand"><b>Plan Pro</b><span class="pro-tag">PRO</span></div>
+    <p class="sub" id="upWhy" style="margin:10px 0 0">Esta función es parte del plan Pro.</p>
+    <ul class="bullets">
+      <li>Estudio de mercado: entorno, estrato y comparables</li>
+      <li>Informe completo por correo, con la masa y sus cifras</li>
+      <li>Estudios guardados y sincronizados en tu cuenta</li>
+      <li>Norma del POT y masa 3D sin límite de lotes</li>
+    </ul>
+    <button class="btn" id="upPay">Pasar a Pro</button>
+    <p class="hint" id="upNote" style="margin-top:10px"></p>
+    <button class="btn line" id="upClose" style="margin-top:10px">Ahora no</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="../firebase-config.js"></script>
+<script src="../app-config.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+
+<script type="module">
+import * as BOG from './bogota.js';
+
+/* ====================== utilidades de interfaz ====================== */
+const $ = (id) => document.getElementById(id);
+let toastT = null;
+function toast(msg, bad) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'show' + (bad ? ' bad' : '');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 4200);
+}
+const fmt = (n) => Math.round(n).toLocaleString('es-CO');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ====================== backend: Firebase o demo ====================== */
+const cfg = window.firebaseConfig || {};
+// ?demo=1 fuerza el modo local: sirve para probar el flujo sin tocar cuentas reales.
+const DEMO_URL = /[?&]demo=1/.test(location.search);
+const USE_FB = !!(cfg.apiKey && !/PEGA_AQUI/.test(cfg.apiKey)) && !DEMO_URL;
+let Backend, me = null, profile = {};
+
+function LocalBackend() {
+  const K = 'vub_user';
+  let u = null;
+  try { u = JSON.parse(localStorage.getItem(K) || 'null'); } catch (e) {}
+  const save = (x) => { u = x; localStorage.setItem(K, JSON.stringify(x)); };
+  return {
+    demo: true,
+    onAuth(cb) { this._cb = cb; setTimeout(() => cb(u), 0); },
+    async signup(email) { save({ uid: 'demo', email }); this._cb(u); return { nuevo: true }; },
+    async login(email) { save({ uid: 'demo', email }); this._cb(u); return { nuevo: false }; },
+    async google() { throw new Error('Google no está disponible en modo demo'); },
+    async logout() { localStorage.removeItem(K); u = null; this._cb(null); },
+    async getProfile() { try { return JSON.parse(localStorage.getItem('vub_profile') || '{}'); } catch (e) { return {}; } },
+    async setProfile(p) { const a = await this.getProfile(); localStorage.setItem('vub_profile', JSON.stringify({ ...a, ...p })); },
+    async saveEstudio(d) { const k = 'vub_estudios'; const a = JSON.parse(localStorage.getItem(k) || '[]'); a.push({ ...d, id: Date.now() }); localStorage.setItem(k, JSON.stringify(a)); },
+  };
+}
+
+async function FirebaseBackend() {
+  const SDK = 'https://www.gstatic.com/firebasejs/10.12.0';
+  const { initializeApp } = await import(`${SDK}/firebase-app.js`);
+  const A = await import(`${SDK}/firebase-auth.js`);
+  const F = await import(`${SDK}/firebase-firestore.js`);
+  const app = initializeApp(cfg);
+  const auth = A.getAuth(app), db = F.getFirestore(app);
+  let U = null;
+  return {
+    demo: false,
+    onAuth(cb) { A.onAuthStateChanged(auth, u => { U = u; cb(u ? { uid: u.uid, email: u.email, nombre: u.displayName || '' } : null); }); },
+    async signup(email, pass) { await A.createUserWithEmailAndPassword(auth, email, pass); },
+    async login(email, pass) { await A.signInWithEmailAndPassword(auth, email, pass); },
+    async google() { await A.signInWithPopup(auth, new A.GoogleAuthProvider()); },
+    async logout() { await A.signOut(auth); },
+    async getProfile() {
+      const s = await F.getDoc(F.doc(db, 'users', U.uid));
+      return s.exists() ? s.data() : null;          // null = usuario nuevo
+    },
+    async setProfile(p) { await F.setDoc(F.doc(db, 'users', U.uid), p, { merge: true }); },
+    async saveEstudio(d) { await F.addDoc(F.collection(db, 'users', U.uid, 'proyectos'), { ...d, creado: F.serverTimestamp() }); },
+  };
+}
+
+/* ====================== CRM: el usuario nuevo entra como lead ====================== */
+async function registrarLeadCRM(usuario) {
+  const url = (window.appConfig || {}).crmLeadModule;
+  if (!url) return;
+  try {
+    const { guardarLead } = await import(url);
+    await guardarLead({
+      nombre: usuario.nombre || usuario.email.split('@')[0],
+      correo: usuario.email,
+      proyecto: (window.appConfig || {}).crmProyecto || 'Visor Urbano Bogotá',
+      origen: 'Registro en la herramienta',
+      mensaje: 'Creó su cuenta en el Visor Urbano de Bogotá (norma POT + masa 3D).',
+    });
+  } catch (e) {
+    // El CRM nunca debe bloquear el ingreso del usuario.
+    console.warn('No se pudo registrar el lead en el CRM:', e);
+  }
+}
+
+/* ====================== login ====================== */
+let authMode = 'login';
+function setAuthMode(m) {
+  authMode = m;
+  $('tabLogin').classList.toggle('on', m === 'login');
+  $('tabSignup').classList.toggle('on', m === 'signup');
+  $('aSubmit').textContent = m === 'signup' ? 'Crear mi cuenta' : 'Entrar';
+  $('aPass').autocomplete = m === 'signup' ? 'new-password' : 'current-password';
+  $('aErr').textContent = '';
+}
+$('tabLogin').onclick = () => setAuthMode('login');
+$('tabSignup').onclick = () => setAuthMode('signup');
+
+function amable(e) {
+  const c = String(e && (e.code || e.message) || e);
+  if (/invalid-credential|wrong-password|user-not-found/.test(c)) return 'Correo o contraseña incorrectos.';
+  if (/email-already-in-use/.test(c)) return 'Ese correo ya tiene cuenta. Entra con tu contraseña.';
+  if (/weak-password/.test(c)) return 'La contraseña debe tener al menos 6 caracteres.';
+  if (/invalid-email/.test(c)) return 'Ese correo no parece válido.';
+  if (/popup-closed|cancelled-popup/.test(c)) return 'Se cerró la ventana de Google.';
+  if (/network/.test(c)) return 'Sin conexión con el servidor. Revisa tu internet.';
+  return 'No se pudo completar: ' + c;
+}
+
+async function doAuth() {
+  const email = $('aEmail').value.trim(), pass = $('aPass').value;
+  if (!email || !pass) { $('aErr').textContent = 'Escribe tu correo y contraseña.'; return; }
+  $('aSubmit').disabled = true; $('aErr').textContent = '';
+  try {
+    if (authMode === 'signup') await Backend.signup(email, pass);
+    else await Backend.login(email, pass);
+  } catch (e) {
+    $('aErr').textContent = amable(e);
+  } finally { $('aSubmit').disabled = false; }
+}
+$('aSubmit').onclick = doAuth;
+$('aPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
+$('aGoogle').onclick = async () => {
+  try { await Backend.google(); } catch (e) { $('aErr').textContent = amable(e); }
+};
+$('btnLogout').onclick = () => Backend.logout();
+
+/* ====================== entrada a la app ====================== */
+const isPro = () => (profile && profile.plan) === 'pro';
+
+async function entrar() {
+  $('authView').classList.add('hidden');
+  $('appView').classList.remove('hidden');
+  $('userMail').textContent = me.email;
+  $('mailTo').textContent = me.email;
+
+  let p = null;
+  try { p = await Backend.getProfile(); } catch (e) { console.warn(e); }
+
+  // Un perfil inexistente ES el indicador de primer ingreso: ahí nace el lead.
+  if (!p) {
+    profile = { email: (me.email || '').toLowerCase(), ciudad: 'Bogotá', plan: 'free' };
+    try { await Backend.setProfile(profile); } catch (e) { console.warn(e); }
+    registrarLeadCRM(me);
+    toast('¡Bienvenido! Tu cuenta quedó creada.');
+  } else {
+    profile = p;
+    // Mantiene el correo al día: es la llave con la que el pago activa el Pro.
+    if (me.email && profile.email !== me.email.toLowerCase()) {
+      profile.email = me.email.toLowerCase();
+      try { await Backend.setProfile({ email: profile.email }); } catch (e) {}
+    }
+  }
+  pintarPlan();
+  initMapa();
+}
+function pintarPlan() {
+  const b = $('planBadge');
+  b.textContent = isPro() ? '★ Pro' : 'Gratis';
+  b.classList.toggle('pro', isPro());
+  $('btnUpgrade').classList.toggle('hidden', isPro());
+  $('mktProTag').classList.toggle('hidden', isPro());
+}
+function salir() {
+  $('appView').classList.add('hidden');
+  $('authView').classList.remove('hidden');
+  $('aEmail').value = ''; $('aPass').value = '';
+}
+
+/* ====================== Pro ====================== */
+const payUrl = () => ((window.appConfig || {}).payUrl || '').trim();
+function mostrarPro(porque) {
+  $('upWhy').textContent = porque || 'Esta función es parte del plan Pro.';
+  $('upNote').innerHTML = payUrl()
+    ? 'Paga con el <b>mismo correo</b> de tu cuenta y activamos tu Pro en menos de 12 horas.'
+    : 'Escríbenos a proyectos@lifecity.com.co para activar tu plan Pro.';
+  $('upgradeModal').classList.remove('hidden');
+}
+$('upClose').onclick = () => $('upgradeModal').classList.add('hidden');
+$('btnUpgrade').onclick = () => mostrarPro('Desbloquea el estudio de mercado y el informe completo.');
+$('upPay').onclick = () => {
+  const u = payUrl();
+  if (u) window.open(u, '_blank');
+  else toast('Escríbenos a proyectos@lifecity.com.co para activar tu Pro.');
+};
+
+/* ====================== estado del estudio ====================== */
+const E = { lote: null, norma: null, params: null, foto: null, mercado: null, lados: null, frenteIdx: 0, punto: null };
+
+/* ====================== mapa ====================== */
+let map, capaLote, marcador;
+function initMapa() {
+  if (map) return;
+  map = L.map('map', { zoomControl: true }).setView([4.6533, -74.0836], 13);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap',
+  }).addTo(map);
+  map.on('click', e => ubicar(e.latlng.lat, e.latlng.lng));
+  setTimeout(() => map.invalidateSize(), 200);
+}
+
+async function ubicar(lat, lon, saltarVista) {
+  if (!BOG.enBogota(lat, lon)) { toast('Ese punto está fuera de Bogotá.', true); return; }
+  E.punto = { lat, lon };
+  if (marcador) marcador.remove();
+  marcador = L.marker([lat, lon]).addTo(map);
+  if (!saltarVista) map.setView([lat, lon], Math.max(map.getZoom(), 17));
+
+  $('s1tag').innerHTML = '<span class="spin"></span>buscando el lote…';
+  try {
+    const lote = await BOG.loteEnPunto(lat, lon);
+    if (!lote) { $('s1tag').textContent = 'Catastro IDECA'; toast('No hay lote catastral en ese punto. Prueba unos metros más adentro.', true); return; }
+    E.lote = lote;
+    dibujarLote(lote);
+    $('s1tag').innerHTML = '<span class="spin"></span>consultando el POT…';
+    const norma = await BOG.normativaEnPunto(lote.centroide.lat, lote.centroide.lon);
+    E.norma = norma;
+    E.params = BOG.parametrosIniciales(norma, lote.area);
+    E.frenteIdx = 0;
+    pintarNormativa();
+    await prepararMasa();
+    $('s1tag').textContent = 'Catastro IDECA';
+  } catch (err) {
+    $('s1tag').textContent = 'Catastro IDECA';
+    toast('Error consultando: ' + err.message, true);
+  }
+}
+
+function dibujarLote(lote) {
+  if (capaLote) capaLote.remove();
+  capaLote = L.layerGroup().addTo(map);
+  for (const v of lote.vecinos) {
+    L.polygon(v.map(([lo, la]) => [la, lo]), { color: '#3aa0ff', weight: 1, opacity: .35, fill: false }).addTo(capaLote);
+  }
+  L.polygon(lote.anillo.map(([lo, la]) => [la, lo]),
+    { color: '#2f9e6e', weight: 3, fillColor: '#2f9e6e', fillOpacity: .25 }).addTo(capaLote);
+}
+
+/* ---- búsqueda por dirección / código ---- */
+$('btnBuscar').onclick = buscar;
+$('qDir').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+async function buscar() {
+  const q = $('qDir').value.trim();
+  if (!q) return;
+  $('btnBuscar').disabled = true;
+  try {
+    const r = await BOG.buscarDireccion(q);
+    if (!r.length) { toast('Sin resultados en Bogotá para: ' + q, true); return; }
+    await ubicar(r[0].lat, r[0].lon);
+  } catch (e) { toast(e.message, true); }
+  finally { $('btnBuscar').disabled = false; }
+}
+
+/* ---- ubicación del dispositivo ---- */
+$('btnGPS').onclick = () => {
+  if (!navigator.geolocation) { toast('Tu navegador no comparte ubicación.', true); return; }
+  toast('Buscando tu ubicación…');
+  navigator.geolocation.getCurrentPosition(
+    p => ubicar(p.coords.latitude, p.coords.longitude),
+    e => toast('No se pudo obtener tu ubicación: ' + e.message, true),
+    { enableHighAccuracy: true, timeout: 12000 }
+  );
+};
+
+/* ---- foto del lote (GPS del EXIF, o la ubicación del momento) ---- */
+$('btnFoto').onclick = () => $('fileFoto').click();
+$('fileFoto').onchange = async (ev) => {
+  const f = ev.target.files[0]; if (!f) return;
+  ev.target.value = '';
+  E.foto = await comprimir(f);
+  $('fotoImg').src = E.foto;
+  $('fotoPrev').classList.remove('hidden');
+
+  let c = null;
+  try {
+    const g = await exifr.gps(f);
+    if (g && g.latitude) c = { lat: +g.latitude.toFixed(7), lon: +g.longitude.toFixed(7) };
+  } catch (e) {}
+  if (c) { toast('Foto con GPS: ubicando el lote…'); ubicar(c.lat, c.lon); return; }
+  if (navigator.geolocation) {
+    toast('La foto no traía GPS: uso tu ubicación actual.');
+    navigator.geolocation.getCurrentPosition(
+      p => ubicar(p.coords.latitude, p.coords.longitude),
+      () => toast('Foto guardada. Toca el lote en el mapa para ubicarlo.', true),
+      { enableHighAccuracy: true, timeout: 12000 });
+  } else toast('Foto guardada. Toca el lote en el mapa.');
+};
+
+function comprimir(file, max = 1280, q = .75) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', q));
+    };
+    img.onerror = rej; img.src = url;
+  });
+}
+
+/* ====================== normativa ====================== */
+function pintarNormativa() {
+  const l = E.lote, n = E.norma;
+  $('s2').classList.remove('off');
+  $('nLote').textContent = l.codigo || '—';
+  $('nArea').textContent = fmt(l.area) + ' m²';
+  $('nLoteKV').innerHTML = fila('Manzana', l.manzana) + fila('Unidades prediales', l.unidades)
+    + fila('Centroide', l.centroide.lat.toFixed(6) + ', ' + l.centroide.lon.toFixed(6));
+  $('nNormaKV').innerHTML =
+      fila('Tratamiento', n.tratamiento)
+    + fila('Tipología', n.tipologia)
+    + fila('Altura máxima', n.alturaMaximaTexto || 'Resultante según tratamiento')
+    + fila('Rango de edificabilidad', n.rango)
+    + fila('Antejardín', n.antejardinM != null ? n.antejardinM + ' m' : null)
+    + fila('Área de actividad', n.areaActividad)
+    + fila('UPL', n.upl ? n.upl + (n.uplCodigo ? ' (' + n.uplCodigo + ')' : '') : null);
+  $('nFuente').innerHTML = 'Fuente: <b>' + esc(n.fuente) + '</b> y catastro IDECA. '
+    + 'El POT publica por GIS el antejardín y el rango; las alturas por rango y los aislamientos '
+    + 'laterales/posteriores están en las tablas del Decreto y dependen del uso, por eso abajo van '
+    + 'como valores de partida editables. <b>El IRM oficial del predio es el que manda.</b>';
+}
+const fila = (k, v) => v == null || v === '' ? '' : `<span class="k">${esc(k)}</span><span class="v">${esc(v)}</span>`;
+
+/* ====================== masa 3D ====================== */
+let THREE, OrbitControls, ren, esc3d, cam, ctrl, gLote, gMasa, animando = false;
+
+async function prepararMasa() {
+  $('s3').classList.remove('off');
+  $('s4').classList.remove('off');
+  const p = E.params;
+  $('sPisos').value = p.pisos; $('sFh').value = p.alturaPiso;
+  $('sAnte').value = p.antejardin; $('sLat').value = p.aislLateral; $('sPost').value = p.aislPosterior;
+  $('srcPisos').textContent = 'de partida: ' + p.origen.pisos;
+  $('srcAnte').textContent = 'de partida: ' + p.origen.antejardin;
+  sincronizar();
+
+  if (!THREE) {
+    THREE = await import('three');
+    ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+    montar3D();
+  }
+  reconstruir();
+  vistaIso();
+  if (!animando) { animando = true; animar(); }
+}
+
+function montar3D() {
+  const canvas = $('canvas3d');
+  ren = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+  ren.setClearColor(0x070c12, 1);
+  ren.outputColorSpace = THREE.SRGBColorSpace;
+  esc3d = new THREE.Scene();
+  cam = new THREE.PerspectiveCamera(45, 1, .5, 6000);
+  ctrl = new OrbitControls(cam, canvas);
+  ctrl.enableDamping = true; ctrl.maxPolarAngle = Math.PI * .495;
+  esc3d.add(new THREE.AmbientLight(0x5a6e88, .85));
+  const sol = new THREE.DirectionalLight(0xffe6bd, 1.15); sol.position.set(90, 170, 70); esc3d.add(sol);
+  const relleno = new THREE.DirectionalLight(0x5f87ff, .35); relleno.position.set(-110, 80, -120); esc3d.add(relleno);
+  const suelo = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000),
+    new THREE.MeshStandardMaterial({ color: 0x0c1219, roughness: .96 }));
+  suelo.rotation.x = -Math.PI / 2; suelo.position.y = -.15; esc3d.add(suelo);
+  esc3d.add(new THREE.GridHelper(600, 60, 0x1d2b3a, 0x141e29));
+  gLote = new THREE.Group(); esc3d.add(gLote);
+  gMasa = new THREE.Group(); esc3d.add(gMasa);
+  new ResizeObserver(redimensionar).observe(canvas.parentElement);
+  redimensionar();
+}
+function redimensionar() {
+  if (!ren) return;
+  const c = $('canvas3d'), w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  ren.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+}
+function animar() { requestAnimationFrame(animar); if (ctrl) { ctrl.update(); ren.render(esc3d, cam); } }
+
+/* ---- geometría: retiro distinto por lado ---- */
+const areaFirmada = (p) => { let a = 0; for (let i = 0, j = p.length - 1; i < p.length; j = i++) a += p[j].x * p[i].z - p[i].x * p[j].z; return a / 2; };
+const areaAbs = (p) => Math.abs(areaFirmada(p));
+
+/** Desplaza cada lado hacia adentro su propia distancia e intersecta los lados vecinos. */
+function retirarPorLado(pts, dists) {
+  const n = pts.length;
+  const orient = Math.sign(areaFirmada(pts)) || 1;
+  const a0 = areaAbs(pts);
+
+  // Desplaza la recta de cada lado y toma la intersección con la del lado anterior.
+  const construir = (s, ds) => {
+    const rectas = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      let dx = b.x - a.x, dz = b.z - a.z;
+      const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+      const nx = dz * s * orient, nz = -dx * s * orient;   // normal del lado
+      rectas.push({ px: a.x + nx * ds[i], pz: a.z + nz * ds[i], dx, dz });
+    }
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const p = rectas[(i - 1 + n) % n], q = rectas[i];
+      const det = p.dx * q.dz - p.dz * q.dx;
+      if (Math.abs(det) < 1e-9) { out.push({ x: q.px, z: q.pz }); continue; }
+      const t = ((q.px - p.px) * q.dz - (q.pz - p.pz) * q.dx) / det;
+      out.push({ x: p.px + p.dx * t, z: p.pz + p.dz * t });
+    }
+    return out;
+  };
+  const valido = (r) => r && r.every(q => Number.isFinite(q.x) && Number.isFinite(q.z))
+    && areaAbs(r) > a0 * .03 && areaAbs(r) < a0 * .999
+    && Math.sign(areaFirmada(r)) === orient;
+
+  // Si el retiro se come el lote, se reduce proporcionalmente hasta que quepa.
+  for (let k = 1; k > .05; k -= .1) {
+    const ds = dists.map(d => d * k);
+    for (const s of [1, -1]) { const r = construir(s, ds); if (valido(r)) return r; }
+  }
+  return pts.slice();
+}
+
+/** Normal hacia afuera del lado i (unitaria). */
+function normalLado(pts, i) {
+  const n = pts.length, a = pts[i], b = pts[(i + 1) % n];
+  let dx = b.x - a.x, dz = b.z - a.z;
+  const L = Math.hypot(dx, dz) || 1;
+  return { x: dz / L, z: -dx / L };
+}
+const largoLado = (pts, i) => {
+  const a = pts[i], b = pts[(i + 1) % pts.length];
+  return Math.hypot(b.x - a.x, b.z - a.z);
+};
+
+/** Los lados "de verdad": el catastro densifica los linderos en decenas de
+    segmentos diminutos, así que se agrupan por orientación y se toma el más
+    largo de cada grupo. Sobre esos se elige el frente. */
+function ladosPrincipales(pts) {
+  const orden = pts.map((_, i) => i).sort((a, b) => largoLado(pts, b) - largoLado(pts, a));
+  const out = [];
+  for (const i of orden) {
+    if (largoLado(pts, i) < 2) break;
+    const ni = normalLado(pts, i);
+    const distinto = out.every(j => {
+      const nj = normalLado(pts, j);
+      return ni.x * nj.x + ni.z * nj.z < 0.87;   // más de ~30° de diferencia
+    });
+    if (distinto) out.push(i);
+    if (out.length >= 8) break;
+  }
+  return out.length ? out : [0];
+}
+
+/** Reparte antejardín / laterales / posterior por la ORIENTACIÓN de cada lado
+    respecto al frente: mismo sentido → antejardín, opuesto → posterior. */
+function distanciasPorLado(pts, frente, p) {
+  const nf = normalLado(pts, frente);
+  return pts.map((_, i) => {
+    const ni = normalLado(pts, i);
+    const cos = ni.x * nf.x + ni.z * nf.z;
+    if (cos > 0.5) return p.antejardin;
+    if (cos < -0.5) return p.aislPosterior;
+    return p.aislLateral;
+  });
+}
+
+function reconstruir() {
+  if (!THREE || !E.lote) return;
+  const { pts } = BOG.huella(E.lote.anillo);
+  const p = leerParams();
+
+  gLote.clear(); gMasa.clear();
+
+  // Lote
+  const anillo = pts.map(q => new THREE.Vector3(q.x, .06, q.z)); anillo.push(anillo[0].clone());
+  gLote.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(anillo),
+    new THREE.LineBasicMaterial({ color: 0x3aa0ff })));
+  gLote.add(new THREE.Mesh(forma(pts), new THREE.MeshStandardMaterial(
+    { color: 0x2b4a63, transparent: true, opacity: .45, side: THREE.DoubleSide, roughness: .95 })));
+
+  // Lados principales y frente elegido
+  E.lados = ladosPrincipales(pts);
+  const frente = E.lados[E.frenteIdx % E.lados.length];
+
+  // Resalta todos los lados que cuentan como "frente" (misma orientación)
+  const nf = normalLado(pts, frente);
+  for (let i = 0; i < pts.length; i++) {
+    const ni = normalLado(pts, i);
+    if (ni.x * nf.x + ni.z * nf.z <= 0.5) continue;
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    gLote.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x, .3, a.z), new THREE.Vector3(b.x, .3, b.z)]),
+      new THREE.LineBasicMaterial({ color: 0xf4b942 })));
+  }
+
+  // Masa
+  const base = retirarPorLado(pts, distanciasPorLado(pts, frente, p));
+  const h = p.pisos * p.alturaPiso;
+  const geo = new THREE.ExtrudeGeometry(forma2D(base), { depth: h, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  gMasa.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial(
+    { color: 0x2f9e6e, transparent: true, opacity: .72, roughness: .55, metalness: .1 })));
+  gMasa.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color: 0x8fe8c0, transparent: true, opacity: .55 })));
+  // Líneas de piso
+  for (let i = 1; i < p.pisos; i++) {
+    const y = i * p.alturaPiso;
+    const r = base.map(q => new THREE.Vector3(q.x, y, q.z)); r.push(r[0].clone());
+    gMasa.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(r),
+      new THREE.LineBasicMaterial({ color: 0x2f9e6e, transparent: true, opacity: .22 })));
+  }
+
+  E.huellaM2 = areaAbs(base);
+  E.alturaM = h;
+  pintarMetricas();
+}
+function forma2D(pts) {
+  const s = new THREE.Shape();
+  s.moveTo(pts[0].x, -pts[0].z);
+  for (let i = 1; i < pts.length; i++) s.lineTo(pts[i].x, -pts[i].z);
+  return s;
+}
+function forma(pts) { const g = new THREE.ShapeGeometry(forma2D(pts)); g.rotateX(-Math.PI / 2); return g; }
+
+function leerParams() {
+  return {
+    pisos: +$('sPisos').value, alturaPiso: +$('sFh').value,
+    antejardin: +$('sAnte').value, aislLateral: +$('sLat').value, aislPosterior: +$('sPost').value,
+  };
+}
+function sincronizar() {
+  $('vPisos').textContent = $('sPisos').value;
+  $('vFh').textContent = (+$('sFh').value).toFixed(1);
+  $('vAnte').textContent = $('sAnte').value;
+  $('vLat').textContent = $('sLat').value;
+  $('vPost').textContent = $('sPost').value;
+}
+['sPisos', 'sFh', 'sAnte', 'sLat', 'sPost'].forEach(id =>
+  $(id).addEventListener('input', () => { sincronizar(); reconstruir(); }));
+$('btnFrente').onclick = () => {
+  if (!E.lote || !E.lados) return;
+  E.frenteIdx = (E.frenteIdx + 1) % E.lados.length;
+  reconstruir();
+  toast('Frente del lote: lado ' + (E.frenteIdx + 1) + ' de ' + E.lados.length);
+};
+
+function pintarMetricas() {
+  const p = leerParams();
+  const constr = E.huellaM2 * p.pisos;
+  const idx = E.lote.area ? constr / E.lote.area : 0;
+  const ocup = E.lote.area ? E.huellaM2 / E.lote.area : 0;
+  $('mHuella').textContent = fmt(E.huellaM2) + ' m²';
+  $('mAltura').textContent = E.alturaM.toFixed(1) + ' m';
+  $('mConstr').textContent = fmt(constr) + ' m²';
+  $('mIndice').textContent = idx.toFixed(2);
+  $('mtrTxt').textContent = fmt(E.huellaM2) + ' / ' + fmt(E.lote.area) + ' m² (' + Math.round(ocup * 100) + '%)';
+  const bar = $('mtrBar');
+  bar.style.width = Math.min(100, ocup * 100) + '%';
+  bar.classList.toggle('over', ocup > .95);
+  $('mtrNote').textContent = 'Índice de construcción logrado: ' + idx.toFixed(2)
+    + ' · ' + p.pisos + ' pisos × ' + p.alturaPiso.toFixed(1) + ' m. Verifica el índice máximo en el IRM del predio.';
+  E.metricas = { huella: E.huellaM2, construida: constr, indice: idx, ocupacion: ocup, altura: E.alturaM, ...p };
+}
+
+function vistaIso() {
+  if (!E.lote || !cam) return;
+  const r = Math.max(40, Math.sqrt(E.lote.area) * 2.2);
+  cam.position.set(r, r * .85, r); ctrl.target.set(0, E.alturaM / 2 || 8, 0); cam.lookAt(ctrl.target);
+}
+$('btnIso').onclick = vistaIso;
+$('btnTop').onclick = () => {
+  const r = Math.max(60, Math.sqrt(E.lote.area) * 3);
+  cam.position.set(0, r, .01); ctrl.target.set(0, 0, 0); cam.lookAt(0, 0, 0);
+};
+
+/* ====================== estudio de mercado (Pro) ====================== */
+$('btnMercado').onclick = async () => {
+  if (!E.lote) { toast('Primero ubica un lote.', true); return; }
+  if (!isPro()) { mostrarPro('El estudio de mercado (entorno, estrato y comparables) es una función Pro.'); return; }
+  $('btnMercado').disabled = true;
+  $('mktOut').innerHTML = '<p class="hint"><span class="spin"></span>Analizando el entorno del lote…</p>';
+  try {
+    const m = await BOG.estudioMercado(E.lote.centroide.lat, E.lote.centroide.lon,
+      { upl: E.norma.upl, radioM: 1000 });
+    E.mercado = m;
+    pintarMercado(m);
+  } catch (e) {
+    $('mktOut').innerHTML = '<p class="hint">No se pudo completar el estudio: ' + esc(e.message) + '</p>';
+  } finally { $('btnMercado').disabled = false; }
+};
+
+function pintarMercado(m) {
+  const cats = m.entorno.categorias.map(c =>
+    `<div class="cat"><div class="n">${c.n}</div><div class="t">${esc(c.titulo)}</div></div>`).join('');
+  const links = m.comparables.map(c =>
+    `<a href="${c.url}" target="_blank" rel="noopener">${esc(c.nombre)} ↗</a>`).join('');
+  $('mktOut').innerHTML = `
+    <div class="row" style="margin-bottom:12px">
+      <div class="stat"><div class="l">Estrato</div><div class="v">${m.estrato ? m.estrato.estrato : '—'}</div></div>
+      <div class="stat"><div class="l">Servicios a 1 km</div><div class="v">${m.entorno.total}</div></div>
+      <div class="stat"><div class="l">UPL</div><div class="v sm">${esc(E.norma.upl || '—')}</div></div>
+    </div>
+    <div class="cats">${cats}</div>
+    <p class="hint">Entorno según OpenStreetMap en 1 km a la redonda; estrato según la manzana del catastro (IDECA). Consulta precios reales de venta y arriendo en la zona:</p>
+    <div class="links">${links}</div>`;
+}
+
+/* ====================== informe ====================== */
+function nombreArchivo() {
+  const c = (E.lote && E.lote.codigo) || 'lote';
+  return 'estudio_' + c + '_bogota.doc';
+}
+function construirInforme() {
+  const l = E.lote, n = E.norma, m = E.metricas || {};
+  const f = (k, v) => v == null || v === '' ? '' : `<tr><td class="k">${k}</td><td>${v}</td></tr>`;
+  const mk = E.mercado;
+  const cats = mk ? mk.entorno.categorias.map(c => `<tr><td class="k">${c.titulo}</td><td>${c.n}</td></tr>`).join('') : '';
+  const style = `<style>
+    body{font-family:Calibri,Arial,sans-serif;color:#15202b;font-size:11pt}
+    h1{font-size:18pt;color:#0f6b4f;margin:0 0 2pt} h2{font-size:12pt;color:#0f6b4f;margin:16pt 0 4pt;border-bottom:1px solid #cfdad4}
+    table{width:100%;border-collapse:collapse;margin-top:4pt} td{border:1px solid #d7e0da;padding:4pt 6pt;font-size:10.5pt}
+    td.k{background:#eef4f1;width:42%;color:#3a4e48} .muted{color:#687d76;font-size:9.5pt}
+    img{max-width:520px;border:1px solid #d7e0da}</style>`;
+  const body = `
+    <h1>Estudio de lote · Bogotá D.C.</h1>
+    <p class="muted">Generado el ${new Date().toLocaleString('es-CO')} · Life City · Visor Urbano<br>
+    Elaborado por: ${esc(me.email)}</p>
+
+    <h2>1. Identificación del lote</h2>
+    <table>
+      ${f('Código de lote (IDECA)', esc(l.codigo))}
+      ${f('Manzana', esc(l.manzana))}
+      ${f('Área del lote', fmt(l.area) + ' m²')}
+      ${f('Coordenadas (WGS84)', l.centroide.lat.toFixed(6) + ', ' + l.centroide.lon.toFixed(6))}
+      ${f('Unidades prediales', l.unidades)}
+    </table>
+
+    <h2>2. Normativa urbanística</h2>
+    <table>
+      ${f('Tratamiento', esc(n.tratamiento))}
+      ${f('Tipología', esc(n.tipologia))}
+      ${f('Altura máxima', esc(n.alturaMaximaTexto || 'Resultante según tratamiento'))}
+      ${f('Rango de edificabilidad', esc(n.rango))}
+      ${f('Antejardín', n.antejardinM != null ? n.antejardinM + ' m' : null)}
+      ${f('Área de actividad', esc(n.areaActividad))}
+      ${f('UPL', esc(n.upl))}
+      ${f('Fuente', esc(n.fuente))}
+    </table>
+    <p class="muted">El POT publica por GIS el antejardín y el rango de edificabilidad. Las alturas por rango
+    y los aislamientos laterales y posteriores provienen de las tablas del Decreto y dependen del uso,
+    por lo que en este estudio se tomaron como valores de partida editables. El IRM oficial del predio prevalece.</p>
+
+    <h2>3. Masa modelada</h2>
+    <table>
+      ${f('Pisos', m.pisos)}
+      ${f('Altura de piso', m.alturaPiso != null ? m.alturaPiso.toFixed(1) + ' m' : null)}
+      ${f('Altura total', m.altura != null ? m.altura.toFixed(1) + ' m' : null)}
+      ${f('Antejardín aplicado', m.antejardin + ' m')}
+      ${f('Aislamiento lateral', m.aislLateral + ' m')}
+      ${f('Aislamiento posterior', m.aislPosterior + ' m')}
+      ${f('Huella', m.huella != null ? fmt(m.huella) + ' m²' : null)}
+      ${f('Ocupación del lote', m.ocupacion != null ? Math.round(m.ocupacion * 100) + ' %' : null)}
+      ${f('Área construida', m.construida != null ? fmt(m.construida) + ' m²' : null)}
+      ${f('Índice de construcción logrado', m.indice != null ? m.indice.toFixed(2) : null)}
+    </table>
+    ${E.vista3d ? `<p><img src="${E.vista3d}"></p>` : ''}
+    ${E.foto ? `<h2>4. Foto del lote</h2><p><img src="${E.foto}"></p>` : ''}
+    ${mk ? `<h2>${E.foto ? 5 : 4}. Estudio de mercado</h2>
+      <table>
+        ${f('Estrato (manzana)', mk.estrato ? mk.estrato.estrato : '—')}
+        ${f('Servicios en 1 km', mk.entorno.total)}
+        ${cats}
+      </table>
+      <p class="muted">Entorno según OpenStreetMap; estrato según catastro IDECA. Comparables sugeridos:
+      ${mk.comparables.map(c => c.nombre + ': ' + c.url).join(' · ')}</p>` : ''}
+
+    <p class="muted" style="margin-top:18pt">Documento generado automáticamente por el Visor Urbano de Life City.
+    No reemplaza el concepto de norma oficial ni la licencia de construcción.</p>`;
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Estudio de lote</title>${style}</head><body>${body}</body></html>`;
+}
+
+function capturarVista() {
+  try { ren.render(esc3d, cam); E.vista3d = $('canvas3d').toDataURL('image/png'); } catch (e) { E.vista3d = null; }
+}
+function exigirLote() {
+  if (!E.lote) { toast('Primero ubica un lote.', true); return false; }
+  return true;
+}
+$('btnDescargar').onclick = () => {
+  if (!exigirLote()) return;
+  capturarVista();
+  const blob = new Blob(['﻿' + construirInforme()], { type: 'application/msword' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nombreArchivo(); a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('Informe descargado.');
+};
+$('btnCorreo').onclick = async () => {
+  if (!exigirLote()) return;
+  const url = ((window.appConfig || {}).reportEndpoint || '').trim();
+  const to = me && me.email;
+  if (!url) { $('btnDescargar').click(); toast('El envío por correo aún no está configurado: te lo descargué.'); return; }
+  capturarVista();
+  const doc = construirInforme();
+  const b64 = btoa(unescape(encodeURIComponent(doc)));
+  const carga = JSON.stringify({
+    email: to, filename: nombreArchivo(),
+    subject: 'Estudio de lote en Bogotá · ' + (E.lote.codigo || ''),
+    body: 'Adjunto el estudio del lote con su norma del POT y la masa modelada.',
+    docBase64: b64, mimeType: 'application/msword',
+  });
+  $('btnCorreo').disabled = true;
+  try {
+    await fetch(url, { method: 'POST', body: carga });
+    toast('Informe enviado a ' + to);
+  } catch (e) {
+    try { await fetch(url, { method: 'POST', mode: 'no-cors', body: carga }); toast('Informe enviado a ' + to); }
+    catch (e2) { $('btnDescargar').click(); toast('No se pudo enviar; te lo descargué.', true); }
+  } finally { $('btnCorreo').disabled = false; }
+};
+$('btnGuardar').onclick = async () => {
+  if (!exigirLote()) return;
+  try {
+    await Backend.saveEstudio({
+      lote: { codigo: E.lote.codigo, manzana: E.lote.manzana, area: E.lote.area, centroide: E.lote.centroide },
+      norma: E.norma, masa: E.metricas || {}, frente: E.frenteIdx,
+      // Firestore no acepta arreglos anidados: la geometría viaja como texto.
+      geometria: JSON.stringify(E.lote.anillo),
+    });
+    toast('Estudio guardado en tu cuenta.');
+  } catch (e) { toast('No se pudo guardar: ' + e.message, true); }
+};
+
+/* ====================== arranque ====================== */
+(async () => {
+  Backend = USE_FB ? await FirebaseBackend() : LocalBackend();
+  if (Backend.demo) { $('demoBanner').classList.remove('hidden'); $('aGoogle').classList.add('hidden'); $('gSep').classList.add('hidden'); }
+  Backend.onAuth(u => { me = u; if (u) entrar(); else salir(); });
+})();
+</script>
+</body>
+</html>
